@@ -78,10 +78,34 @@ export type DSType = typeof DS;
 import { useOperator } from "./OperatorContext";
 
 export function useDS(): DSType {
-  const { darkMode } = useA11y();
+  const { darkMode, highContrast } = useA11y();
   const { operator } = useOperator();
   
-  const baseDS = darkMode ? DS_DARK : DS;
+  let baseDS = darkMode ? DS_DARK : DS;
+
+  if (highContrast) {
+    baseDS = darkMode
+      ? {
+          ...baseDS,
+          bg: "#000000",
+          surface: "#090910",
+          text1: "#FFFFFF",
+          text2: "#E2E8F0",
+          text3: "#CBD5E1",
+          border: "#475569",
+          borderMd: "#64748B",
+        }
+      : {
+          ...baseDS,
+          bg: "#FFFFFF",
+          surface: "#F8FAFC",
+          text1: "#000000",
+          text2: "#0F172A",
+          text3: "#334155",
+          border: "#000000",
+          borderMd: "#000000",
+        };
+  }
   
   // Overriding primary colors dynamically based on Operator
   return {
@@ -101,12 +125,14 @@ export function LogoMark({ size = 40, bg }: { size?: number; bg?: string }) {
       background: bgColor,
       display: "flex", alignItems: "center", justifyContent: "center",
       flexShrink: 0,
+      padding: Math.max(3, Math.round(size * 0.08)),
+      boxShadow: ds.shadowPrimary,
     }}>
-      <svg width={size * 0.62} height={size * 0.62} viewBox="0 0 26 26" fill="none">
-        <path d="M 12 4 A 9 9 0 0 0 12 22" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
-        <path d="M 14 4 A 9 9 0 0 1 14 22" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
-        <circle cx="13" cy="13" r="2.2" fill="white" />
-      </svg>
+      <img
+        src="/logo-in.png"
+        alt="ÍNTEGRA Logo"
+        style={{ width: "90%", height: "90%", objectFit: "contain" }}
+      />
     </div>
   );
 }
@@ -136,15 +162,19 @@ export function Screen({ children, bg, style }: {
   children: React.ReactNode; bg?: string; style?: React.CSSProperties;
 }) {
   const ds = useDS();
+  const { textSize } = useA11y();
   return (
-    <div style={{
-      position: "absolute", inset: 0,
-      background: bg ?? ds.bg,
-      display: "flex", flexDirection: "column",
-      fontFamily: Fonts.body,
-      overflow: "hidden",
-      ...style,
-    }}>
+    <div
+      className={`screen-container a11y-text-${textSize}`}
+      style={{
+        position: "absolute", inset: 0,
+        background: bg ?? ds.bg,
+        display: "flex", flexDirection: "column",
+        fontFamily: Fonts.body,
+        overflow: "hidden",
+        ...style,
+      }}
+    >
       <OperatorHeader />
       {children}
     </div>
@@ -152,12 +182,25 @@ export function Screen({ children, bg, style }: {
 }
 
 export function ScrollBody({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  const { textSize } = useA11y();
+  const zoomScale = textSize === "large" ? 1.18 : textSize === "xl" ? 1.36 : 1.0;
   return (
-    <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch" as const, ...style }}>
+    <div
+      className="screen-scroll-body"
+      style={{
+        flex: 1,
+        overflowY: "auto",
+        overflowX: "hidden",
+        WebkitOverflowScrolling: "touch" as const,
+        zoom: zoomScale,
+        ...style,
+      }}
+    >
       {children}
     </div>
   );
 }
+
 
 export function BackHeader({ title, onBack, right }: {
   title?: string; onBack: () => void; right?: React.ReactNode;

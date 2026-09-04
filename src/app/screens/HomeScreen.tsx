@@ -12,9 +12,9 @@ const STEPS = [
   {
     num: "1",
     label: "Validar passagem",
-    desc: "Aproxime seu celular do leitor NFC.",
-    action: "/nfc",
-    actionLabel: "Validar agora",
+    desc: "Apresente o QR Code ao motorista ou aproxime por NFC.",
+    action: "/qrcode",
+    actionLabel: "Apresentar QR Code",
     done: false,
   },
   {
@@ -172,29 +172,50 @@ export function HomeScreen() {
             )}
           </AnimatePresence>
 
-          <div style={{ padding: "0 14px 14px", position: "relative" }}>
+          <div style={{ padding: "0 14px 14px", position: "relative", display: "flex", gap: 8 }}>
+            <button
+              onClick={e => { e.stopPropagation(); nav("/qrcode"); }}
+              style={{
+                flex: 1.2, height: 48, borderRadius: 13, border: "none",
+                background: "#fff",
+                color: DS.primaryDark, fontSize: 13, fontWeight: 800,
+                cursor: "pointer", fontFamily: "'Inter', sans-serif",
+                boxShadow: "0 4px 14px rgba(0,0,0,0.15)",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+                transition: "transform 0.1s, background 0.2s",
+              }}
+              onPointerDown={e => { e.currentTarget.style.transform = "scale(0.975)"; }}
+              onPointerUp={e => { e.currentTarget.style.transform = "scale(1)"; }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <rect x="4" y="4" width="6" height="6" rx="1" stroke={DS.primaryDark} strokeWidth="2" />
+                <rect x="14" y="4" width="6" height="6" rx="1" stroke={DS.primaryDark} strokeWidth="2" />
+                <rect x="4" y="14" width="6" height="6" rx="1" stroke={DS.primaryDark} strokeWidth="2" />
+                <path d="M14 14h6v6h-6v-6z" fill={DS.primaryDark} />
+              </svg>
+              QR Code
+            </button>
+
             <button
               onClick={e => { e.stopPropagation(); nav("/passagem"); }}
               style={{
-                width: "100%", height: 50, borderRadius: 13, border: "none",
-                background: "rgba(255, 255, 255, 0.15)",
+                flex: 1, height: 48, borderRadius: 13, border: "none",
+                background: "rgba(255, 255, 255, 0.18)",
                 backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
-                color: "#fff", fontSize: 14, fontWeight: 700,
+                color: "#fff", fontSize: 13, fontWeight: 700,
                 cursor: "pointer", fontFamily: "'Inter', sans-serif",
-                borderTop: "1px solid rgba(255,255,255,0.2)",
-                boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                borderTop: "1px solid rgba(255,255,255,0.25)",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                 transition: "transform 0.1s, background 0.2s",
               }}
-              onPointerDown={e => { e.currentTarget.style.transform = "scale(0.975)"; e.currentTarget.style.background = "rgba(255, 255, 255, 0.25)"; }}
-              onPointerUp={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.background = "rgba(255, 255, 255, 0.15)"; }}
+              onPointerDown={e => { e.currentTarget.style.transform = "scale(0.975)"; }}
+              onPointerUp={e => { e.currentTarget.style.transform = "scale(1)"; }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M6 8.5C7.3 6.6 9.5 5.3 12 5.3s4.7 1.3 6 3.2" stroke="white" strokeWidth="2" strokeLinecap="round" />
-                <path d="M8.5 11.5C9.3 10.3 10.6 9.5 12 9.5s2.7.8 3.5 2" stroke="white" strokeWidth="2" strokeLinecap="round" />
-                <circle cx="12" cy="14" r="1.5" fill="white" />
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="6" width="18" height="12" rx="2" stroke="white" strokeWidth="2" />
+                <path d="M8 12h8" stroke="white" strokeWidth="2" strokeLinecap="round" />
               </svg>
-              Ver passagem e embarcar
+              Passagem
             </button>
           </div>
         </div>

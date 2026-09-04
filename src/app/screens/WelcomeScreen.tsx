@@ -23,57 +23,33 @@ export function WelcomeScreen() {
       {/* Logo animation area */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 32px" }}>
 
-        {/* Animated logo mark */}
+        {/* Animated logo mark oficial ÍNTEGRA */}
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
-          style={{ marginBottom: 32, position: "relative" }}
+          initial={{ opacity: 0, y: -12, scale: 0.94 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+          style={{ marginBottom: 28, position: "relative", display: "flex", justifyContent: "center", alignItems: "center" }}
         >
+          {/* Ambient glow da marca */}
           <div style={{
-            width: 88, height: 88,
-            borderRadius: 26,
-            background: `linear-gradient(135deg, ${DS.primaryDark} 0%, ${DS.primary} 100%)`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: DS.shadowPrimary,
-          }}>
-            <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
-              {/* Left arc – slides in from left */}
-              <motion.path
-                d="M 26 8 A 18 18 0 0 0 26 44"
-                stroke="white" strokeWidth="3" strokeLinecap="round" fill="none"
-                initial={{ x: -18, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{ delay: 0.15, duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
-              />
-              {/* Right arc – slides in from right */}
-              <motion.path
-                d="M 26 8 A 18 18 0 0 1 26 44"
-                stroke="white" strokeWidth="3" strokeLinecap="round" fill="none"
-                initial={{ x: 18, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{ delay: 0.15, duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
-              />
-              {/* Center dot – appears after arcs connect */}
-              <motion.circle
-                cx="26" cy="26" r="4"
-                fill="white"
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.52, duration: 0.35, ease: [0.34, 1.56, 0.64, 1] }}
-              />
-            </svg>
-          </div>
+            position: "absolute",
+            width: 170,
+            height: 110,
+            borderRadius: "50%",
+            background: "radial-gradient(ellipse at center, rgba(157,78,221,0.38) 0%, rgba(123,44,191,0.12) 50%, transparent 75%)",
+            filter: "blur(20px)",
+            pointerEvents: "none",
+          }} />
 
-          {/* Subtle pulse ring */}
-          <motion.div
-            animate={{ opacity: [0.4, 0, 0.4] }}
-            transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+          <img
+            src="/logo-in.png"
+            alt="Logotipo Oficial ÍNTEGRA"
             style={{
-              position: "absolute", inset: -6,
-              borderRadius: 32,
-              border: `2px solid ${DS.primary}`,
-              pointerEvents: "none",
+              width: 140,
+              height: 87,
+              objectFit: "contain",
+              filter: "drop-shadow(0 8px 26px rgba(123, 44, 191, 0.55))",
+              position: "relative",
             }}
           />
         </motion.div>

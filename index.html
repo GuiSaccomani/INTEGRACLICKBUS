@@ -1,26 +1,48 @@
 
   <!DOCTYPE html>
-  <html lang="en">
+  <html lang="pt-BR">
     <head>
       <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>Íntegra Mobile App</title>
-      <meta name="description" content="Enhance your travel experience with seamless navigation and real-time updates at bus terminals, designed for ClickBus users to simplify their journey." />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+      <title>ÍNTEGRA - Plataforma de Embarque Digital</title>
+      <meta name="description" content="Plataforma de Embarque Digital com NFC, QR Code e validação em tempo real." />
       <meta name="robots" content="noindex, nofollow" />
+      
+      <!-- PWA Meta Tags -->
+      <meta name="theme-color" content="#110826" />
+      <meta name="apple-mobile-web-app-capable" content="yes" />
+      <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+      <meta name="apple-mobile-web-app-title" content="ÍNTEGRA" />
+      <meta name="mobile-web-app-capable" content="yes" />
+      <meta name="format-detection" content="telephone=no" />
+
+      <!-- Favicons e Apple Touch Icons -->
+      <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+      <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
       
       <!-- Google Fonts -->
       <link rel="preconnect" href="https://fonts.googleapis.com">
       <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
       <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
       
-      <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
+      <style>
+        html, body {
+          height: 100%;
+          margin: 0;
+          padding: 0;
+          background-color: #0D0118;
+          -webkit-tap-highlight-color: transparent;
+        }
+        #root {
+          height: 100%;
+          min-height: 100vh;
+        }
+      </style>
     </head>
 
     <body>
-      
       <div id="root"></div>
       <script type="module" src="/src/main.tsx"></script>
-      
     </body>
   </html>
   

@@ -1,173 +1,265 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
-import { useDS, Screen, BackHeader, BtnPrimary } from "../components/MobileLayout";
+import { useDS, Screen, BackHeader, BtnPrimary, BtnGhost } from "../components/MobileLayout";
 import { useA11y } from "../components/AccessibilityContext";
-
-function SuitcaseIllustration() {
-  const DS = useDS();
-  return (
-    <svg width="140" height="130" viewBox="0 0 140 130" fill="none">
-      <ellipse cx="70" cy="122" rx="42" ry="6" fill="rgba(123,44,191,0.06)" />
-      <rect x="18" y="38" width="104" height="76" rx="12" fill={DS.primaryLight} stroke={DS.primaryMid} strokeWidth="2" />
-      <path d="M46 38v-8a8 8 0 018-8h32a8 8 0 018 8v8" stroke={DS.primary} strokeWidth="2" strokeLinecap="round" />
-      <line x1="18" y1="74" x2="122" y2="74" stroke={DS.primaryMid} strokeWidth="1.5" />
-      <rect x="30" y="50" width="34" height="18" rx="5" fill="white" stroke={DS.primaryMid} strokeWidth="1" />
-      <rect x="76" y="50" width="34" height="18" rx="5" fill="white" stroke={DS.primaryMid} strokeWidth="1" />
-      <circle cx="28" cy="118" r="7" fill={DS.primaryMid} />
-      <circle cx="28" cy="118" r="4" fill={DS.primary} opacity="0.5" />
-      <circle cx="112" cy="118" r="7" fill={DS.primaryMid} />
-      <circle cx="112" cy="118" r="4" fill={DS.primary} opacity="0.5" />
-      {/* NFC tag */}
-      <rect x="54" y="82" width="32" height="18" rx="5" fill={DS.primary} opacity="0.85" />
-      <path d="M61 90.5C62.2 89 63.9 88.2 66 88.2s3.8.8 5 2.3" stroke="white" strokeWidth="1.4" strokeLinecap="round" />
-      <circle cx="66" cy="92" r="1.2" fill="white" />
-    </svg>
-  );
-}
+import { luggageApi, passengerApi, TicketDetails } from "../../services/api";
+import { nfcService } from "../../services/nfc";
 
 export function RegistrarBagemScreen() {
   const DS = useDS();
   const nav = useNavigate();
   const { triggerFeedback } = useA11y();
-  const [done, setDone] = useState(false);
-  const [loading, setLoading] = useState(false);
 
-  const handle = () => {
+  const [ticketData, setTicketData] = useState<TicketDetails | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [createdBagId, setCreatedBagId] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const nfcSupport = nfcService.checkSupport();
+
+  useEffect(() => {
+    async function loadTicket() {
+      try {
+        const savedUser = localStorage.getItem("integra_user");
+        let userId = "";
+        if (savedUser) {
+          try {
+            userId = JSON.parse(savedUser).userId;
+          } catch (_) {}
+        }
+        if (userId) {
+          const tickets = await passengerApi.getUserTickets(userId).catch(() => []);
+          if (tickets.length > 0) {
+            setTicketData(tickets[0]);
+          }
+        }
+      } catch (err) {
+        console.warn("Aviso ao carregar bilhete do passageiro:", err);
+      }
+    }
+    loadTicket();
+  }, []);
+
+  const generateBaggageHexId = () => {
+    const arr = new Uint8Array(32);
+    crypto.getRandomValues(arr);
+    return Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+  };
+
+  const handleRegister = async () => {
+    if (!ticketData?.ticketId) {
+      setErrorMessage("Nenhum bilhete ativo encontrado para vincular a bagagem.");
+      return;
+    }
+
     setLoading(true);
-    triggerFeedback("neutral", "Aproxime o celular da tag da bagagem");
-    setTimeout(() => { 
-      setLoading(false); 
-      setDone(true); 
-      triggerFeedback("success", "Bagagem vinculada ao passageiro");
-    }, 2000);
+    setErrorMessage("");
+
+    const newBaggageId = generateBaggageHexId();
+
+    // 1. Gravação na tag física se suportado
+    if (nfcSupport.isSupported) {
+      triggerFeedback("neutral", "Aproxime o celular da tag física da bagagem");
+      try {
+        await nfcService.writeBaggageTag(newBaggageId);
+      } catch (nfcErr: any) {
+        setErrorMessage(`Falha na aproximação da tag NFC física: ${nfcErr.message || "Tag não detectada"}`);
+        setLoading(false);
+        return;
+      }
+    }
+
+    // 2. Persistência atômica no Oracle (associando ao UT_HASH)
+    try {
+      await luggageApi.addLuggage(ticketData.ticketId, newBaggageId);
+      setCreatedBagId(newBaggageId);
+      setDone(true);
+      triggerFeedback("success", "Bagagem vinculada com sucesso no sistema.");
+    } catch (apiErr: any) {
+      setErrorMessage(apiErr.message || "Erro ao registrar bagagem no sistema.");
+      triggerFeedback("error", "Erro ao registrar bagagem.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <Screen bg={DS.bg}>
-      <BackHeader title="Adicionar bagagem" onBack={() => nav("/bagagens")} />
+      <BackHeader title="Adicionar Bagagem" onBack={() => nav("/bagagens")} />
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "0 20px" }}>
         <AnimatePresence mode="wait">
           {!done ? (
-            <motion.div key="form"
+            <motion.div
+              key="form"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
               style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}
             >
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                style={{ padding: "24px 0 12px" }}
-              >
-                <SuitcaseIllustration />
-              </motion.div>
-
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
-                style={{ textAlign: "center", marginBottom: 24 }}>
+              <div style={{ textAlign: "center", padding: "28px 0 16px" }}>
+                <div
+                  style={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: "50%",
+                    background: DS.primaryLight,
+                    border: `2px solid ${DS.primaryMid}`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    margin: "0 auto 16px",
+                  }}
+                >
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+                    <rect x="4" y="7" width="16" height="12" rx="2" stroke={DS.primary} strokeWidth="2" />
+                    <path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2" stroke={DS.primary} strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </div>
                 <h2 style={{ margin: "0 0 6px", fontSize: 22, fontWeight: 800, color: DS.text1, letterSpacing: "-0.4px" }}>
-                  Registrar bagagem
+                  Registrar Bagagem
                 </h2>
                 <p style={{ margin: 0, fontSize: 14, color: DS.text2, lineHeight: 1.5 }}>
-                  Sua mala receberá uma tag digital NFC e ficará vinculada à sua viagem.
+                  A bagagem será vinculada à sua passagem com segurança.
                 </p>
-              </motion.div>
+              </div>
 
-              {/* Trip association info */}
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+              {/* Informações do bilhete vinculado */}
+              <div
                 style={{
-                  width: "100%", background: DS.surface, borderRadius: 12,
-                  padding: "14px 16px", marginBottom: 16,
-                  border: `1px solid ${DS.border}`, boxShadow: DS.shadowXs,
-                }}>
-                <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: DS.text3, letterSpacing: "0.5px", textTransform: "uppercase" }}>
-                  Será vinculada a
+                  width: "100%",
+                  background: DS.surface,
+                  borderRadius: 14,
+                  padding: "14px 16px",
+                  marginBottom: 16,
+                  border: `1px solid ${DS.border}`,
+                  boxShadow: DS.shadowXs,
+                }}
+              >
+                <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, color: DS.text3, letterSpacing: "0.5px", textTransform: "uppercase" }}>
+                  Vinculada à Viagem
                 </p>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                      <path d="M5 12h14M13 6l6 6-6 6" stroke={DS.primary} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </div>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M5 12h14M13 6l6 6-6 6" stroke={DS.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                   <div>
-                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: DS.text1 }}>São Paulo → Rio de Janeiro</p>
-                    <p style={{ margin: "2px 0 0", fontSize: 12, color: DS.text2 }}>21 AGO · 14:30 · Assento 18</p>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: DS.text1 }}>
+                      {ticketData?.departure || "São Paulo"} → {ticketData?.arrival || "Rio de Janeiro"}
+                    </p>
+                    <p style={{ margin: "2px 0 0", fontSize: 12, color: DS.text2 }}>
+                      Poltrona {ticketData?.seat || "18"} · Bilhete Oficial
+                    </p>
                   </div>
                 </div>
-              </motion.div>
+              </div>
+
+              {/* Status de NFC */}
+              <div
+                style={{
+                  width: "100%",
+                  borderRadius: 12,
+                  padding: "10px 14px",
+                  marginBottom: 20,
+                  background: nfcSupport.isSupported ? "rgba(5,150,105,0.1)" : "rgba(245,158,11,0.1)",
+                  border: `1px solid ${nfcSupport.isSupported ? DS.success : "#F59E0B"}`,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                }}
+              >
+                <div
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: nfcSupport.isSupported ? DS.success : "#F59E0B",
+                    flexShrink: 0,
+                  }}
+                />
+                <span style={{ fontSize: 12, color: DS.text1, lineHeight: 1.4 }}>
+                  {nfcSupport.isSupported
+                    ? "Web NFC disponível para gravação em tag física NDEF."
+                    : "NFC não disponível neste navegador. A bagagem será registrada via código seguro no sistema."}
+                </span>
+              </div>
+
+              {errorMessage && (
+                <div style={{ width: "100%", padding: "10px 14px", background: "rgba(220,38,38,0.1)", border: `1px solid ${DS.error}`, borderRadius: 12, marginBottom: 16 }}>
+                  <p style={{ margin: 0, fontSize: 13, color: DS.error, textAlign: "center" }}>{errorMessage}</p>
+                </div>
+              )}
 
               <div style={{ flex: 1 }} />
 
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-                style={{ width: "100%", paddingBottom: 32 }}>
+              <div style={{ width: "100%", paddingBottom: 32 }}>
                 <BtnPrimary
-                  label={loading ? "Lendo tag..." : "Ler tag NFC"}
+                  label={loading ? "Gravando e vinculando..." : nfcSupport.isSupported ? "Gravar Tag NFC da Mala" : "Registrar Bagagem no Sistema"}
                   disabled={loading}
-                  onClick={handle}
+                  onClick={handleRegister}
                   icon={
                     !loading && (
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                        <path d="M6 8.5C7.3 6.6 9.5 5.3 12 5.3s4.7 1.3 6 3.2" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-                        <path d="M8.5 11.5C9.3 10.3 10.6 9.5 12 9.5s2.7.8 3.5 2" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-                        <circle cx="12" cy="14" r="2" fill="white" />
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     )
                   }
                 />
-              </motion.div>
+              </div>
             </motion.div>
           ) : (
-            <motion.div key="success"
+            <motion.div
+              key="success"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.45, ease: [0.34, 1.56, 0.64, 1] }}
               style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}
             >
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 280, damping: 14 }}
+              <div
                 style={{
-                  width: 88, height: 88, borderRadius: "50%",
-                  background: `linear-gradient(135deg, ${DS.success}, #22a84a)`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  boxShadow: `0 10px 36px rgba(5,150,105,0.35)`,
+                  width: 80,
+                  height: 80,
+                  borderRadius: "50%",
+                  background: `linear-gradient(135deg, ${DS.success}, #16a34a)`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 10px 30px rgba(5,150,105,0.4)",
                 }}
               >
-                <svg width="42" height="42" viewBox="0 0 24 24" fill="none">
-                  <motion.path d="M5 12l4 4 10-10" stroke="white" strokeWidth="2.5"
-                    strokeLinecap="round" strokeLinejoin="round"
-                    initial={{ pathLength: 0 }} animate={{ pathLength: 1 }}
-                    transition={{ delay: 0.2, duration: 0.4 }}
-                  />
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                  <path d="M5 13l4 4L19 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-              </motion.div>
+              </div>
 
               <div style={{ textAlign: "center" }}>
-                <h2 style={{ margin: "0 0 6px", fontSize: 22, fontWeight: 800, color: DS.text1, letterSpacing: "-0.4px" }}>Bagagem vinculada ao passageiro</h2>
-                <p style={{ margin: 0, fontSize: 14, color: DS.text2 }}>Pronto! A bagagem foi adicionada.</p>
+                <h2 style={{ margin: "0 0 6px", fontSize: 22, fontWeight: 800, color: DS.text1, letterSpacing: "-0.4px" }}>
+                  Bagagem Vinculada ao Passageiro
+                </h2>
+                <p style={{ margin: 0, fontSize: 14, color: DS.text2 }}>
+                  Registrada no sistema com sucesso.
+                </p>
               </div>
 
-              <div style={{ background: DS.surface, borderRadius: 12, border: `1px solid ${DS.border}`, padding: "14px 20px", width: "100%", display: "flex", flexDirection: "column", gap: 8 }}>
-                {[
-                  { label: "Identificação", value: "IN-20481" },
-                  { label: "NFC", value: "Ativo" },
-                  { label: "QR Code", value: "Disponível" },
-                  { label: "Status", value: "Registrada" },
-                ].map(row => (
-                  <div key={row.label} style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 13, color: DS.text2 }}>{row.label}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: DS.text1 }}>{row.value}</span>
-                  </div>
-                ))}
+              <div style={{ background: DS.surface, borderRadius: 14, border: `1px solid ${DS.border}`, padding: "16px", width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 13, color: DS.text2 }}>BAGGAGE_ID:</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: DS.primary, fontFamily: "monospace" }}>
+                    {createdBagId.slice(0, 16)}...
+                  </span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 13, color: DS.text2 }}>Status do Vínculo:</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: DS.success }}>Vinculada com Sucesso</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 13, color: DS.text2 }}>Status:</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: DS.text1 }}>Registrada</span>
+                </div>
               </div>
 
-              <BtnPrimary
-                label="Ver minhas bagagens"
-                onClick={() => nav("/bagagens")}
-              />
+              <BtnPrimary label="Ver Minhas Bagagens" onClick={() => nav("/bagagens")} />
             </motion.div>
           )}
         </AnimatePresence>

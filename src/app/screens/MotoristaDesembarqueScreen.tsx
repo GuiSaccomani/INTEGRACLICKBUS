@@ -3,176 +3,405 @@ import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import { useDS, Screen, BtnPrimary, BtnGhost, BackHeader, Fonts } from "../components/MobileLayout";
 import { useA11y } from "../components/AccessibilityContext";
+import { luggageApi, LuggageDetail } from "../../services/api";
+import { nfcService } from "../../services/nfc";
 
-type Phase = "waiting" | "reading" | "success" | "error";
+type Phase = "idle" | "reading_nfc" | "confirm" | "releasing" | "success" | "error";
 
 export function MotoristaDesembarqueScreen() {
   const DS = useDS();
   const nav = useNavigate();
-  const { triggerFeedback, textSize } = useA11y();
-  const [phase, setPhase] = useState<Phase>("waiting");
-  const [showConfirm, setShowConfirm] = useState(false);
-  
-  const titleSize = textSize === "xl" ? 26 : textSize === "large" ? 22 : 18;
-  const descSize = textSize === "xl" ? 18 : textSize === "large" ? 16 : 14;
+  const { triggerFeedback } = useA11y();
 
-  function simulate(result: "success" | "error") {
-    if (phase !== "waiting") return;
-    setPhase("reading");
-    
-    setTimeout(() => {
-      setPhase(result);
-      if (result === "success") {
-        triggerFeedback("success", "Tag limpa com sucesso. Pronta para reutilização.");
-      } else {
-        triggerFeedback("error", "Erro ao limpar a tag.");
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [baggageDetail, setBaggageDetail] = useState<LuggageDetail | null>(null);
+  const [manualBaggageId, setManualBaggageId] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [physicalTagCleaned, setPhysicalTagCleaned] = useState(true);
+
+  const nfcSupport = nfcService.checkSupport();
+
+  // Busca dados da bagagem pelo BAGGAGE_ID
+  const handleFetchBaggage = async (baggageId: string) => {
+    setPhase("releasing");
+    setErrorMessage("");
+
+    try {
+      const cleanId = baggageId.replace(/[^a-fA-F0-9]/g, "").toUpperCase();
+      const res = await luggageApi.getById(cleanId);
+      setBaggageDetail(res.luggage);
+      setPhase("confirm");
+    } catch (err: any) {
+      setErrorMessage(err.message || "Bagagem não encontrada no sistema.");
+      setPhase("error");
+    }
+  };
+
+  // Inicia leitura de tag NFC física
+  const handleStartScan = async () => {
+    setErrorMessage("");
+
+    if (!nfcSupport.isSupported) {
+      setErrorMessage(nfcSupport.message);
+      setPhase("error");
+      return;
+    }
+
+    setPhase("reading_nfc");
+
+    try {
+      await nfcService.scan({
+        onBaggageRead: (bag) => {
+          handleFetchBaggage(bag.baggageId);
+        },
+        onError: (err) => {
+          setErrorMessage(err.message || "Falha ao ler a tag NFC da bagagem.");
+          setPhase("error");
+        },
+      });
+    } catch (err: any) {
+      setErrorMessage(err.message || "Erro ao iniciar o leitor de tag.");
+      setPhase("error");
+    }
+  };
+
+  // Confirmação final da entrega e limpeza da tag
+  const handleConfirmRelease = async () => {
+    if (!baggageDetail?.baggageId) return;
+
+    setPhase("releasing");
+    setErrorMessage("");
+
+    try {
+      // 1. Encerra associação no Oracle (DELETE seguro em BAGGAGE)
+      await luggageApi.removeLuggage(baggageDetail.baggageId);
+
+      // 2. Tenta limpar fisicamente a tag NFC se Web NFC estiver disponível
+      let cleaned = true;
+      if (nfcSupport.isSupported) {
+        try {
+          await nfcService.clearTag();
+        } catch (cleanErr) {
+          console.warn("Aviso: Limpeza física da tag falhou ou tag não aproximada:", cleanErr);
+          cleaned = false;
+        }
       }
-    }, 2000);
-  }
 
-  const centerColor =
-    phase === "success" ? DS.success :
-    phase === "error" ? DS.error :
-    phase === "reading" ? DS.primary : DS.primaryLight;
+      setPhysicalTagCleaned(cleaned);
+      setPhase("success");
+      triggerFeedback("success", "Desembarque da bagagem confirmado.");
+    } catch (apiErr: any) {
+      setErrorMessage(apiErr.message || "Erro ao desvincular bagagem no banco.");
+      setPhase("error");
+      triggerFeedback("error", "Erro ao confirmar desembarque.");
+    }
+  };
 
-  const centerBorder =
-    phase === "waiting" ? `2px solid ${DS.primaryMid}` : "none";
-
-  const statusText =
-    phase === "waiting" ? "Limpar tag NFC" :
-    phase === "reading" ? "Acessando tag..." :
-    phase === "success" ? "DADOS REMOVIDOS" :
-    "FALHA NA LEITURA";
-
-  const statusSub =
-    phase === "waiting" ? "Aproxime o celular da tag da bagagem retirada." :
-    phase === "reading" ? "Limpando informações..." :
-    phase === "success" ? "Esta tag está pronta para ser reutilizada." :
-    "Tente aproximar o celular novamente.";
+  const handleReset = () => {
+    setPhase("idle");
+    setBaggageDetail(null);
+    setManualBaggageId("");
+    setErrorMessage("");
+  };
 
   return (
     <Screen bg={DS.surface}>
-      <BackHeader title="Desembarque" onBack={() => nav("/motorista/home")} />
+      <BackHeader title="Desembarque de Bagagem" onBack={() => nav("/motorista/home")} />
 
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 28px" }}>
-        
-        {/* Animação central */}
-        <div style={{ position: "relative", width: 180, height: 180, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 36 }}>
-          {phase === "reading" && (
-            <>
-              <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1.9, opacity: [0, 0.6, 0] }} transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }} style={{ position: "absolute", inset: 0, borderRadius: "50%", border: `2px solid ${DS.primary}` }} />
-            </>
-          )}
-
-          <motion.div
-            animate={{ scale: phase === "reading" ? [1, 1.05, 1] : 1 }}
-            transition={{ scale: { duration: 1.4, repeat: Infinity, ease: "easeInOut" } }}
-            style={{
-              width: 100, height: 100, borderRadius: "50%",
-              background: centerColor,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: phase === "success" ? `0 8px 32px rgba(5,150,105,0.4)` : phase === "error" ? `0 8px 32px rgba(220,38,38,0.4)` : phase === "waiting" ? DS.shadowSm : `0 8px 32px rgba(123,44,191,0.35)`,
-              border: centerBorder,
-              transition: "background 0.45s ease, box-shadow 0.4s",
-            }}
-          >
-            <AnimatePresence mode="wait">
-              {phase === "waiting" && (
-                <motion.div key="waiting" initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }} transition={{ duration: 0.25 }}>
-                  <svg width="44" height="44" viewBox="0 0 24 24" fill="none">
-                    <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke={DS.primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </motion.div>
-              )}
-              {phase === "reading" && (
-                <motion.div key="spin" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} style={{ width: 36, height: 36, borderRadius: "50%", border: "3px solid rgba(255,255,255,0.3)", borderTopColor: "white" }} />
-                </motion.div>
-              )}
-              {phase === "success" && (
-                <motion.div key="success" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", stiffness: 300 }}>
-                  <svg width="44" height="44" viewBox="0 0 24 24" fill="none">
-                    <motion.path d="M5 12l4 4 10-10" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.45 }} />
-                  </svg>
-                </motion.div>
-              )}
-              {phase === "error" && (
-                <motion.div key="error" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", stiffness: 300 }}>
-                  <svg width="44" height="44" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 22C17.5 22 22 17.5 22 12C22 6.5 17.5 2 12 2C6.5 2 2 6.5 2 12C2 17.5 6.5 22 12 22Z" stroke="white" strokeWidth="2" />
-                    <path d="M12 8V13" stroke="white" strokeWidth="2" strokeLinecap="round" />
-                    <circle cx="12" cy="16" r="1" fill="white" />
-                  </svg>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        </div>
-
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={phase}
-            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }}
-            style={{ textAlign: "center", marginBottom: 36, width: "100%" }}
-          >
-            <p style={{ margin: 0, fontSize: titleSize, fontWeight: 800, color: phase === "success" ? DS.success : phase === "error" ? DS.error : DS.text1, letterSpacing: "-0.4px" }}>
-              {phase === "success" ? "✓ " : phase === "error" ? "! " : ""}{statusText}
-            </p>
-            <p style={{ margin: "8px 0 0", fontSize: descSize, color: DS.text2, lineHeight: 1.5 }}>
-              {statusSub}
-            </p>
-          </motion.div>
-        </AnimatePresence>
-
-        {phase === "waiting" && (
-          <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
-            <BtnPrimary label="Limpar Tag" onClick={() => setShowConfirm(true)} />
-          </div>
-        )}
-
-        {/* Modal de confirmação */}
-        <AnimatePresence>
-          {showConfirm && (
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 100, display: "flex", alignItems: "flex-end" }}
-              onClick={() => setShowConfirm(false)}
-            >
-              <motion.div
-                initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-                style={{ width: "100%", background: DS.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: "30px 20px 40px", boxShadow: DS.shadowMd }}
-                onClick={e => e.stopPropagation()}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          padding: "16px 24px",
+          overflowY: "auto",
+        }}
+      >
+        {phase === "idle" && (
+          <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 18, margin: "auto 0" }}>
+            <div style={{ textAlign: "center" }}>
+              <div
+                style={{
+                  width: 72,
+                  height: 72,
+                  borderRadius: "50%",
+                  background: DS.primaryLight,
+                  border: `2px solid ${DS.primaryMid}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 12px",
+                }}
               >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 56, height: 56, marginBottom: 20, margin: "0 auto" }}>
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke={DS.error} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
-                <p style={{ margin: "0 0 12px", fontSize: 20, fontWeight: 700, color: DS.text1, textAlign: "center", fontFamily: Fonts.heading }}>
-                  Limpar esta Tag?
-                </p>
-                <p style={{ margin: "0 0 32px", fontSize: 15, color: DS.text2, textAlign: "center", lineHeight: 1.5 }}>
-                  Todos os dados vinculados a esta bagagem serão permanentemente removidos. Deseja continuar?
-                </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <BtnPrimary label="Sim, limpar tag" onClick={() => { setShowConfirm(false); simulate("success"); }} />
-                  <BtnGhost label="Cancelar" onClick={() => setShowConfirm(false)} />
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+                  <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke={DS.primary} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <h2 style={{ fontFamily: Fonts.heading, fontSize: 20, margin: "0 0 6px", color: DS.text1 }}>
+                Identificar Bagagem para Entrega
+              </h2>
+              <p style={{ margin: 0, fontSize: 13, color: DS.text2, lineHeight: 1.4 }}>
+                Aproxime o celular da tag NFC da mala ou digite o código da etiqueta.
+              </p>
+            </div>
 
-        {phase === "error" && (
-          <div style={{ width: "100%" }}>
-            <BtnPrimary label="Tentar novamente" onClick={() => setPhase("waiting")} />
+            <BtnPrimary
+              label="Ler Tag NFC da Mala"
+              onClick={handleStartScan}
+              icon={
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M6 8.5C7.3 6.6 9.5 5.3 12 5.3s4.7 1.3 6 3.2" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+                  <circle cx="12" cy="14" r="2" fill="white" />
+                </svg>
+              }
+            />
+
+            {/* Entrada manual de contingência */}
+            <div style={{ background: DS.bg, borderRadius: 14, padding: 14, border: `1px solid ${DS.border}` }}>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: DS.text3, textTransform: "uppercase", marginBottom: 6 }}>
+                Buscar por Código Manual
+              </label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="text"
+                  value={manualBaggageId}
+                  onChange={(e) => setManualBaggageId(e.target.value)}
+                  placeholder="ID da Bagagem (64 hex)"
+                  style={{
+                    flex: 1,
+                    height: 44,
+                    borderRadius: 10,
+                    border: `1px solid ${DS.border}`,
+                    background: DS.surface,
+                    color: DS.text1,
+                    fontSize: 13,
+                    padding: "0 10px",
+                    fontFamily: "monospace",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleFetchBaggage(manualBaggageId)}
+                  style={{
+                    height: 44,
+                    padding: "0 14px",
+                    borderRadius: 10,
+                    background: DS.primary,
+                    color: "#FFF",
+                    border: "none",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    cursor: "pointer",
+                  }}
+                >
+                  Buscar
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
+        {phase === "reading_nfc" && (
+          <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", alignItems: "center", margin: "auto 0", gap: 16 }}>
+            <div
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: "50%",
+                background: DS.primaryLight,
+                border: `3px solid ${DS.primary}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                animation: "pulse 1.5s infinite ease-in-out",
+              }}
+            >
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+                <path d="M6 8.5C7.3 6.6 9.5 5.3 12 5.3s4.7 1.3 6 3.2" stroke={DS.primary} strokeWidth="2" strokeLinecap="round" />
+                <path d="M8.5 11.5C9.3 10.3 10.6 9.5 12 9.5s2.7.8 3.5 2" stroke={DS.primary} strokeWidth="2" strokeLinecap="round" />
+                <circle cx="12" cy="14" r="2" fill={DS.primary} />
+              </svg>
+            </div>
+            <h3 style={{ margin: 0, fontSize: 18, color: DS.text1 }}>Aproxime da Mala</h3>
+            <p style={{ margin: 0, fontSize: 13, color: DS.text2, textAlign: "center" }}>
+              Lendo os dados gravados na tag física NDEF...
+            </p>
+            <BtnGhost label="Cancelar" onClick={handleReset} />
+          </div>
+        )}
+
+        {/* ── CONFIRMAÇÃO DE DADOS DA BAGAGEM ── */}
+        {phase === "confirm" && baggageDetail && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 16, margin: "auto 0" }}
+          >
+            <div style={{ textAlign: "center" }}>
+              <h2 style={{ fontFamily: Fonts.heading, fontSize: 20, margin: "0 0 6px", color: DS.text1 }}>
+                Conferir Bagagem do Passageiro
+              </h2>
+              <p style={{ margin: 0, fontSize: 13, color: DS.text2 }}>
+                Confirme os dados antes de entregar a mala ao passageiro.
+              </p>
+            </div>
+
+            <div
+              style={{
+                background: DS.surface,
+                borderRadius: 14,
+                padding: "16px",
+                border: `1px solid ${DS.border}`,
+                boxShadow: DS.shadowSm,
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 13, color: DS.text2 }}>Passageiro:</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: DS.text1 }}>{baggageDetail.passengerName}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 13, color: DS.text2 }}>Poltrona:</span>
+                <span style={{ fontSize: 15, fontWeight: 800, color: DS.primary }}>{baggageDetail.seat}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 13, color: DS.text2 }}>Viagem:</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: DS.text1 }}>
+                  {baggageDetail.departure} → {baggageDetail.arrival}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 13, color: DS.text2 }}>ID Bagagem:</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: DS.text2, fontFamily: "monospace" }}>
+                  {baggageDetail.baggageId.slice(0, 16)}...
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <BtnPrimary label="Confirmar Entrega e Liberar Tag" onClick={handleConfirmRelease} />
+              <BtnGhost label="Cancelar" onClick={handleReset} />
+            </div>
+          </motion.div>
+        )}
+
+        {phase === "releasing" && (
+          <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", alignItems: "center", margin: "auto 0", gap: 16 }}>
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                border: `4px solid ${DS.primaryMid}`,
+                borderTopColor: DS.primary,
+                borderRadius: "50%",
+                animation: "spin 0.9s linear infinite",
+              }}
+            />
+            <h3 style={{ margin: 0, fontSize: 18, color: DS.text1 }}>Encerrando Associação no Sistema...</h3>
+            <p style={{ margin: 0, fontSize: 13, color: DS.text2, textAlign: "center" }}>
+              Removendo registro e procedendo com a limpeza da tag física.
+            </p>
+          </div>
+        )}
+
+        {/* ── RESULTADO DE SUCESSO ── */}
         {phase === "success" && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
-            <BtnPrimary label="Limpar outra tag" onClick={() => setPhase("waiting")} style={{ background: DS.primaryLight, color: DS.primary, border: `2px solid ${DS.primaryMid}` }} />
-            <BtnGhost label="Voltar ao início" onClick={() => nav("/motorista/home")} />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", alignItems: "center", margin: "auto 0" }}
+          >
+            <div
+              style={{
+                width: 80,
+                height: 80,
+                borderRadius: "50%",
+                background: `linear-gradient(135deg, ${DS.success}, #16a34a)`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 16,
+                boxShadow: "0 10px 30px rgba(5,150,105,0.4)",
+              }}
+            >
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                <path d="M5 13l4 4L19 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+
+            <h2 style={{ fontFamily: Fonts.heading, fontSize: 22, margin: "0 0 6px", color: DS.success, textAlign: "center" }}>
+              DESEMBARQUE CONFIRMADO
+            </h2>
+            <p style={{ margin: "0 0 20px", fontSize: 14, color: DS.text2, textAlign: "center" }}>
+              Associação de bagagem encerrada com sucesso no sistema.
+            </p>
+
+            {/* Alerta de limpeza física de tag (conforme especificado no requisito 14) */}
+            <div
+              style={{
+                width: "100%",
+                borderRadius: 14,
+                padding: "14px",
+                marginBottom: 20,
+                background: physicalTagCleaned ? "rgba(5,150,105,0.1)" : "rgba(245,158,11,0.12)",
+                border: `1px solid ${physicalTagCleaned ? DS.success : "#F59E0B"}`,
+              }}
+            >
+              <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700, color: physicalTagCleaned ? DS.success : "#D97706" }}>
+                {physicalTagCleaned ? "✓ Tag Física Limpa" : "⚠️ Tag Física Não Reinicializada"}
+              </p>
+              <p style={{ margin: 0, fontSize: 12, color: DS.text1, lineHeight: 1.4 }}>
+                {physicalTagCleaned
+                  ? "A tag NDEF foi sobrescrita e está pronta para ser reutilizada em outra bagagem."
+                  : "A retirada foi realizada no sistema, mas a tag física precisa ser limpa/reprocessada antes de reutilização."}
+              </p>
+            </div>
+
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
+              <BtnPrimary label="Entregar Outra Bagagem" onClick={handleReset} />
+              <BtnGhost label="Voltar ao Início" onClick={() => nav("/motorista/home")} />
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── ERRO ── */}
+        {phase === "error" && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", alignItems: "center", margin: "auto 0" }}
+          >
+            <div
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: "50%",
+                background: DS.error,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 16,
+              }}
+            >
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+
+            <h2 style={{ fontFamily: Fonts.heading, fontSize: 20, margin: "0 0 8px", color: DS.error, textAlign: "center" }}>
+              FALHA NO DESEMBARQUE
+            </h2>
+            <p style={{ margin: "0 0 24px", fontSize: 14, color: DS.text2, textAlign: "center", lineHeight: 1.5 }}>
+              {errorMessage || "Erro ao consultar ou desvincular a bagagem."}
+            </p>
+
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
+              <BtnPrimary label="Tentar Novamente" onClick={handleReset} />
+              <BtnGhost label="Voltar" onClick={() => nav("/motorista/home")} />
+            </div>
           </motion.div>
         )}
       </div>

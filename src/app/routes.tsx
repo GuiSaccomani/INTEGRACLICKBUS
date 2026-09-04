@@ -5,6 +5,8 @@ import { LoginScreen }         from "./screens/LoginScreen";
 import { HomeScreen }          from "./screens/HomeScreen";
 import { PassagemDigitalScreen } from "./screens/PassagemDigitalScreen";
 import { ValidacaoNFCScreen }  from "./screens/ValidacaoNFCScreen";
+import { CredencialNFCScreen } from "./screens/CredencialNFCScreen";
+import { QRCodeScreen }        from "./screens/QRCodeScreen";
 import { PassagemValidadaScreen } from "./screens/PassagemValidadaScreen";
 import { BagagensScreen }      from "./screens/BagagensScreen";
 import { RegistrarBagemScreen } from "./screens/RegistrarBagemScreen";
@@ -39,6 +41,8 @@ export const router = createBrowserRouter([
       { path: "home",            Component: HomeScreen },
       { path: "passagem",        Component: PassagemDigitalScreen },
       { path: "nfc",             Component: ValidacaoNFCScreen },
+      { path: "qrcode",          Component: QRCodeScreen },
+      { path: "credencial-nfc",  Component: CredencialNFCScreen },
       { path: "validada",        Component: PassagemValidadaScreen },
       { path: "bagagens",        Component: BagagensScreen },
       { path: "bagagem-nova",    Component: RegistrarBagemScreen },
@@ -58,6 +62,7 @@ export const router = createBrowserRouter([
       { path: "motorista/passageiros", Component: MotoristaPassageirosScreen },
       { path: "motorista/historico",   Component: MotoristaHistoricoScreen },
       { path: "motorista/lista-bagagens", Component: MotoristaListaBagagensScreen },
+      { path: "motorista/conta",       Component: ContaScreen },
       { path: "inicio",          loader: toHome },
       { path: "*",               loader: toHome },
     ],

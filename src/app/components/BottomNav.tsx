@@ -5,7 +5,23 @@ export type NavTab = "home" | "viagens" | "bagagens" | "conta";
 
 interface NavItem { id: NavTab; label: string; path: string; }
 
-function getActiveTab(pathname: string): NavTab {
+function getActiveTab(pathname: string, isDriver: boolean): NavTab {
+  if (isDriver) {
+    if (pathname === "/motorista/home") return "home";
+    if (pathname.startsWith("/motorista/historico")) return "viagens";
+    if (
+      pathname.startsWith("/motorista/lista-bagagens") ||
+      pathname.startsWith("/motorista/bagagem") ||
+      pathname.startsWith("/motorista/desembarque") ||
+      pathname.startsWith("/motorista/passageiros") ||
+      pathname.startsWith("/motorista/validacao")
+    ) {
+      return "bagagens";
+    }
+    if (pathname.startsWith("/motorista/conta") || pathname === "/conta") return "conta";
+    return "home";
+  }
+
   if (pathname === "/home") return "home";
   if (pathname === "/passagem" || pathname === "/historico" || pathname === "/nfc" || pathname === "/validada") return "viagens";
   if (pathname.startsWith("/bagagem") || pathname.startsWith("/bagagens")) return "bagagens";
@@ -13,11 +29,18 @@ function getActiveTab(pathname: string): NavTab {
   return "home";
 }
 
-const NAV_ITEMS: NavItem[] = [
+const PASSENGER_NAV_ITEMS: NavItem[] = [
   { id: "home",     label: "Início",   path: "/home" },
   { id: "viagens",  label: "Viagens",  path: "/passagem" },
   { id: "bagagens", label: "Bagagens", path: "/bagagens" },
   { id: "conta",    label: "Conta",    path: "/conta" },
+];
+
+const DRIVER_NAV_ITEMS: NavItem[] = [
+  { id: "home",     label: "Início",   path: "/motorista/home" },
+  { id: "viagens",  label: "Viagens",  path: "/motorista/historico" },
+  { id: "bagagens", label: "Bagagens", path: "/motorista/lista-bagagens" },
+  { id: "conta",    label: "Conta",    path: "/motorista/conta" },
 ];
 
 function NavIcon({ id, active }: { id: NavTab; active: boolean }) {
@@ -57,18 +80,28 @@ export function BottomNav() {
   const DS = useDS();
   const nav = useNavigate();
   const location = useLocation();
-  const active = getActiveTab(location.pathname);
+
+  // Detecta se a rota atual ou perfil do usuário é de Motorista
+  const isDriver =
+    location.pathname.startsWith("/motorista") ||
+    localStorage.getItem("integra_user_role") === "driver";
+
+  const active = getActiveTab(location.pathname, isDriver);
+  const items = isDriver ? DRIVER_NAV_ITEMS : PASSENGER_NAV_ITEMS;
 
   return (
-    <div style={{
-      display: "flex",
-      background: DS.surface,
-      borderTop: `1px solid ${DS.border}`,
-      paddingBottom: 18,
-      flexShrink: 0,
-      zIndex: 10,
-    }}>
-      {NAV_ITEMS.map(item => {
+    <div
+      className="pwa-bottom-nav"
+      style={{
+        display: "flex",
+        background: DS.surface,
+        borderTop: `1px solid ${DS.border}`,
+        paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)",
+        flexShrink: 0,
+        zIndex: 10,
+      }}
+    >
+      {items.map(item => {
         const on = item.id === active;
         return (
           <button

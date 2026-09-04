@@ -94,104 +94,36 @@ export function BagemDetalheScreen() {
           ))}
         </div>
 
-        {/* Segurança Digital */}
+        {/* Segurança Digital Simplificada para o Passageiro */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.35 }}
           style={{
             background: DS.surface, borderRadius: 12,
-            border: `1.5px solid ${DS.primaryMid}`,
+            border: `1px solid ${DS.border}`,
             boxShadow: DS.shadowXs,
-            padding: "16px 16px", marginBottom: 16,
-            overflow: "hidden", position: "relative",
+            padding: "14px 16px", marginBottom: 16,
+            display: "flex", alignItems: "center", gap: 12,
           }}
         >
-          {/* Faixa de fundo sutil */}
-          <div style={{ position: "absolute", top: 0, right: 0, width: 80, height: 80, background: `radial-gradient(circle, ${DS.primaryLight} 0%, transparent 70%)`, pointerEvents: "none" }} />
-
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L4 6v6c0 5.5 3.5 10.7 8 12 4.5-1.3 8-6.5 8-12V6l-8-4z" stroke={DS.primary} strokeWidth="2" strokeLinejoin="round" fill={DS.primaryLight} />
-                <path d="M9 12l2 2 4-4" stroke={DS.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <div>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: DS.text1 }}>Segurança Digital</p>
-              <p style={{ margin: "1px 0 0", fontSize: 11, color: DS.success, fontWeight: 700 }}>✓ Certificado válido</p>
-            </div>
-          </div>
-
-          {[
-            {
-              icon: (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <rect x="5" y="11" width="14" height="10" rx="2" stroke={DS.primary} strokeWidth="1.8" />
-                  <path d="M8 11V7a4 4 0 018 0v4" stroke={DS.primary} strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
-              ),
-              label: "Criptografia", value: "AES-256", ok: true,
-            },
-            {
-              icon: (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <path d="M6 8.5C7.3 6.6 9.5 5.3 12 5.3s4.7 1.3 6 3.2" stroke={DS.primary} strokeWidth="1.8" strokeLinecap="round" />
-                  <path d="M8.5 11.5C9.3 10.3 10.6 9.5 12 9.5s2.7.8 3.5 2" stroke={DS.primary} strokeWidth="1.8" strokeLinecap="round" />
-                  <circle cx="12" cy="14" r="1.5" fill={DS.primary} />
-                </svg>
-              ),
-              label: "NFC autenticado", value: "Chip verificado", ok: true,
-            },
-            {
-              icon: (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke={DS.primary} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              ),
-              label: "Hash de verificação", value: "IN20481-A3F9", ok: true,
-            },
-            {
-              icon: (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2L4 6v6c0 5.5 3.5 10.7 8 12 4.5-1.3 8-6.5 8-12V6l-8-4z" stroke={DS.primary} strokeWidth="1.8" strokeLinejoin="round" />
-                </svg>
-              ),
-              label: "Certificado digital", value: "X.509 v3 · Válido", ok: true,
-            },
-          ].map((row, i, a) => (
-            <div key={row.label} style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "10px 0",
-              borderBottom: i < a.length - 1 ? `1px solid ${DS.border}` : "none",
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  {row.icon}
-                </div>
-                <span style={{ fontSize: 12, color: DS.text2, fontWeight: 500 }}>{row.label}</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: row.ok ? DS.success : DS.error }}>{row.value}</span>
-                {row.ok && (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                    <path d="M9 12l2 2 4-4" stroke={DS.success} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                    <circle cx="12" cy="12" r="10" stroke={DS.success} strokeWidth="1.8" />
-                  </svg>
-                )}
-              </div>
-            </div>
-          ))}
-
-          <div style={{ marginTop: 12, background: DS.successLight, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 8 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2L4 6v6c0 5.5 3.5 10.7 8 12 4.5-1.3 8-6.5 8-12V6l-8-4z" stroke={DS.success} strokeWidth="2" strokeLinejoin="round" />
-              <path d="M9 12l2 2 4-4" stroke={DS.success} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <div style={{
+            width: 38, height: 38, borderRadius: 10,
+            background: DS.primaryLight,
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+          }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L4 6v6c0 5.5 3.5 10.7 8 12 4.5-1.3 8-6.5 8-12V6l-8-4z" stroke={DS.primary} strokeWidth="2" strokeLinejoin="round" fill={DS.primaryLight} />
+              <path d="M9 12l2 2 4-4" stroke={DS.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <p style={{ margin: 0, fontSize: 11, color: DS.success, fontWeight: 600, lineHeight: 1.4 }}>
-              Esta bagagem está protegida por criptografia de ponta a ponta e identificação NFC certificada.
-            </p>
           </div>
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: DS.text1 }}>Bagagem Rastreada e Segura</p>
+            <p style={{ margin: "2px 0 0", fontSize: 11, color: DS.text2 }}>Identificação digital vinculada à sua passagem</p>
+          </div>
+          <span style={{ fontSize: 11, fontWeight: 700, color: DS.success, background: DS.successLight, padding: "3px 8px", borderRadius: 100 }}>
+            Protegida
+          </span>
         </motion.div>
 
         {/* Timeline */}

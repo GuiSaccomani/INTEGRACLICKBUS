@@ -1,78 +1,6 @@
-import { useNavigate, useLocation } from "react-router";
+import { useNavigate } from "react-router";
 import { useDS, Screen, StatusBadge } from "../components/MobileLayout";
 import { useA11y } from "../components/AccessibilityContext";
-
-function BottomNavDriver() {
-  const DS = useDS();
-  const nav = useNavigate();
-  const loc = useLocation();
-
-  const TABS = [
-    { id: "home", label: "Início", path: "/motorista/home", icon: (w: string) => (
-      <>
-        <path d="M3 12L12 3l9 9v9a1 1 0 01-1 1H5a1 1 0 01-1-1v-9z" strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M9 21V12h6v9" strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" />
-      </>
-    )},
-    { id: "viagens", label: "Viagens", path: "/motorista/historico", icon: (w: string) => (
-      <>
-        <rect x="2" y="6" width="20" height="14" rx="3" strokeWidth={w} />
-        <path d="M7 6V5a2 2 0 012-2h6a2 2 0 012 2v1" strokeWidth={w} strokeLinecap="round" />
-        <line x1="12" y1="11" x2="12" y2="17" strokeWidth="1.8" strokeLinecap="round" />
-        <line x1="9" y1="14" x2="15" y2="14" strokeWidth="1.8" strokeLinecap="round" />
-      </>
-    )},
-    { id: "bagagens", label: "Bagagens", path: "/motorista/lista-bagagens", icon: (w: string) => (
-      <>
-        <rect x="5" y="8" width="14" height="11" rx="2" strokeWidth={w} />
-        <path d="M8 8V6a2 2 0 012-2h4a2 2 0 012 2v2" strokeWidth={w} strokeLinecap="round" />
-        <line x1="5" y1="13" x2="19" y2="13" strokeWidth="1.8" strokeLinecap="round" />
-      </>
-    )},
-    { id: "conta", label: "Conta", path: "/conta", icon: (w: string) => (
-      <>
-        <circle cx="12" cy="8" r="4" strokeWidth={w} />
-        <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" strokeWidth={w} strokeLinecap="round" />
-      </>
-    )},
-  ];
-
-  return (
-    <div style={{
-      display: "flex",
-      background: DS.surface,
-      borderTop: `1px solid ${DS.border}`,
-      paddingBottom: 18,
-      flexShrink: 0,
-      zIndex: 10,
-    }}>
-      {TABS.map(t => {
-        const active = loc.pathname.startsWith(t.path) || (t.path === "/motorista/home" && loc.pathname === "/motorista/home");
-        const c = active ? DS.primary : DS.text3;
-        const w = active ? "2.2" : "1.8";
-        return (
-          <button
-            key={t.id}
-            onClick={() => nav(t.path)}
-            style={{
-              flex: 1, display: "flex", flexDirection: "column",
-              alignItems: "center", gap: 3,
-              background: "none", border: "none", cursor: "pointer",
-              padding: "11px 0 0", fontFamily: "'Inter', sans-serif",
-            }}
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c}>
-              {t.icon(w)}
-            </svg>
-            <span style={{ fontSize: 10, fontWeight: active ? 700 : 500, color: c }}>
-              {t.label}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 export function MotoristaHomeScreen() {
   const DS = useDS();
@@ -327,7 +255,6 @@ export function MotoristaHomeScreen() {
         </div>
 
       </div>
-      <BottomNavDriver />
     </Screen>
   );
 }
