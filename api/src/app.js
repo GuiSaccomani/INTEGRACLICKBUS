@@ -19,6 +19,9 @@ app.use(
         origin.startsWith('https://192.168.') ||
         origin.startsWith('http://10.') ||
         origin.startsWith('https://10.') ||
+        origin.includes('netlify.app') ||
+        origin.includes('onrender.com') ||
+        origin.includes('loca.lt') ||
         process.env.NODE_ENV !== 'production'
       ) {
         callback(null, true);
