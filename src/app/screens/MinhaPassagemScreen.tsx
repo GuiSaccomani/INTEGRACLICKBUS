@@ -2,6 +2,7 @@ import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
 import { DS, Screen, ScrollBody } from "../components/MobileLayout";
+import { AddToWalletButton } from "../components/AddToWalletButton";
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
@@ -272,8 +273,17 @@ export function MinhaPassagemScreen() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.4 }}
-          style={{ padding: "20px 0 36px" }}
+          style={{ padding: "16px 0 36px", display: "flex", flexDirection: "column", gap: 12 }}
         >
+          <AddToWalletButton
+            passengerName="Carlos Eduardo Lima"
+            departure="São Paulo - Tietê"
+            arrival="Belo Horizonte"
+            seat="14A"
+            ticketCode="ITG-4829-SP"
+            qrValue="INTEGRA-PASS-4829-SP"
+          />
+
           <button
             onClick={() => nav("/checkin")}
             style={{
