@@ -12,15 +12,19 @@ import type {
 } from './webauthnTypes';
 
 function getApiBaseUrl(): string {
-  if (
-    typeof window !== 'undefined' &&
-    window.location.hostname &&
-    window.location.hostname !== 'localhost' &&
-    window.location.hostname !== '127.0.0.1'
-  ) {
-    return `http://${window.location.hostname}:3333`;
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
   }
-  return import.meta.env.VITE_API_URL || 'http://localhost:3333';
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://localhost:3333';
+    }
+    if (host.startsWith('192.168.') || host.startsWith('10.') || host.startsWith('172.')) {
+      return `http://${host}:3333`;
+    }
+  }
+  return 'https://integraclickbus.onrender.com';
 }
 
 const API_BASE_URL = getApiBaseUrl();

@@ -112,8 +112,8 @@ export function LoginScreen() {
   };
 
   const handleLogin = async (overrideEmail?: string, overrideSenha?: string) => {
-    const loginEmail = overrideEmail || email;
-    const loginSenha = overrideSenha || senha;
+    const loginEmail = (typeof overrideEmail === 'string' ? overrideEmail : email).trim();
+    const loginSenha = typeof overrideSenha === 'string' ? overrideSenha : senha;
 
     if (!loginEmail || !loginSenha) {
       setErrorMsg("Informe seu e-mail e senha.");
@@ -211,7 +211,7 @@ export function LoginScreen() {
 
         {/* Main CTA */}
         <button
-          onClick={handleLogin} disabled={loading}
+          onClick={() => handleLogin()} disabled={loading}
           style={{
             width: "100%", height: 60, borderRadius: 18, border: "none",
             background: loading ? DS.primaryMid : `linear-gradient(135deg, ${DS.primaryDark}, ${DS.primary})`,
