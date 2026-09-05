@@ -60,6 +60,31 @@ class PassengerController {
       next(error);
     }
   }
+
+  async downloadPkpass(req, res, next) {
+    try {
+      const { ticketId } = req.params;
+      const walletService = require('../services/walletService');
+      let ticket = {};
+      try {
+        const details = await passengerService.getTicketDetails(ticketId);
+        ticket = details.ticket || {};
+      } catch (_) {
+        ticket = { ticketId };
+      }
+      const pkpassBuffer = walletService.generateAppleWalletPass(ticket);
+
+      res.set({
+        'Content-Type': 'application/vnd.apple.pkpass',
+        'Content-Disposition': `attachment; filename="passagem-${ticketId.slice(0, 8)}.pkpass"`,
+        'Content-Length': pkpassBuffer.length,
+      });
+
+      return res.status(200).send(pkpassBuffer);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new PassengerController();

@@ -9,6 +9,9 @@ router.get('/ticket/:ticketId', passengerController.getTicket);
 // Consultar todas as passagens do passageiro
 router.get('/user/:userId/tickets', passengerController.getUserTickets);
 
+// Download oficial de bilhete para Apple Wallet (.pkpass)
+router.get('/ticket/:ticketId/wallet/pkpass', passengerController.downloadPkpass);
+
 // Validação atômica da passagem diretamente por ticketId
 router.post('/ticket/:ticketId/validate', passengerController.validateTicket);
 
