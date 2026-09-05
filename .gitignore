@@ -41,5 +41,10 @@ build/
 local.properties
 *.apk
 *.aab
-*.jar
 dev-dist/
+
+# Rust / Tauri POC Builds
+**/target/
+tauri-poc/src-tauri/target/
+tauri-poc/dist/
+tauri-poc/src-tauri/gen/android/
