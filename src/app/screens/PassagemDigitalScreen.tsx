@@ -268,44 +268,7 @@ export function PassagemDigitalScreen() {
                 <p style={{ margin: "10px 0 0", fontSize: 11, fontWeight: 700, color: DS.text2, fontFamily: "monospace", letterSpacing: "1px" }}>
                   Ref: {credentialRef.slice(0, 12)}...
                 </p>
-                <p style={{ margin: "2px 0 8px", fontSize: 10, color: DS.text3 }}>Validação segura pelo sistema</p>
-
-                {/* Botão de simulação rápida para gravação do vídeo */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    playValidationSuccessSound();
-                    triggerSuccessHaptic();
-                    nav("/validada", {
-                      state: {
-                        passengerName,
-                        seat: seatNumber,
-                        departure: departureCity,
-                        arrival: arrivalCity,
-                        luggageId: "IN-20481",
-                      },
-                    });
-                  }}
-                  style={{
-                    padding: "6px 14px",
-                    borderRadius: 10,
-                    border: `1.5px dashed ${DS.success}`,
-                    background: "rgba(16, 185, 129, 0.08)",
-                    color: DS.success,
-                    fontSize: 11,
-                    fontWeight: 800,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                    <path d="M5 12l5 5L20 7" stroke={DS.success} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  Simular Leitura (Gravação)
-                </button>
+                <p style={{ margin: "2px 0 0", fontSize: 11, color: DS.text3 }}>Apresente este código ao leitor no momento do embarque</p>
               </div>
             </motion.div>
           </div>

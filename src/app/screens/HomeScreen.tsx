@@ -43,7 +43,6 @@ export function HomeScreen() {
 
   return (
     <Screen bg={DS.bg}>
-      <OperatorHeader />
       {/* Header */}
       <div style={{
         background: DS.surface, padding: "52px 20px 16px",

@@ -17,6 +17,16 @@ class WebauthnService {
    * @returns {string}
    */
   getRpId(req) {
+    // 1. Extrai dinamicamente o domínio do frontend chamador (ex: integra-app-clickbus.netlify.app)
+    if (req) {
+      const origin = req.get('origin') || req.get('referer');
+      if (origin) {
+        try {
+          const parsed = new URL(origin);
+          return parsed.hostname;
+        } catch (_) {}
+      }
+    }
     if (process.env.WEBAUTHN_RP_ID) {
       return process.env.WEBAUTHN_RP_ID;
     }
@@ -39,15 +49,23 @@ class WebauthnService {
       origins.add(configuredOrigin);
     }
 
-    // Origens de desenvolvimento e rede local para testes reais via celular
+    // Origens oficiais em produção e desenvolvimento
+    origins.add('https://integra-app-clickbus.netlify.app');
     origins.add('http://localhost:5173');
     origins.add('http://127.0.0.1:5173');
     origins.add('http://localhost:3333');
 
     if (req) {
-      const host = req.get('host');
       const originHeader = req.get('origin');
       if (originHeader) origins.add(originHeader);
+      const referer = req.get('referer');
+      if (referer) {
+        try {
+          const parsed = new URL(referer);
+          origins.add(parsed.origin);
+        } catch (_) {}
+      }
+      const host = req.get('host');
       if (host) {
         origins.add(`http://${host}`);
         origins.add(`https://${host}`);

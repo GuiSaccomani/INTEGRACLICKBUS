@@ -45,7 +45,6 @@ export function Root() {
           background: DS.bg,
           boxShadow: "0 0 40px rgba(0,0,0,0.06)",
           paddingTop: "env(safe-area-inset-top, 0px)",
-          paddingBottom: "env(safe-area-inset-bottom, 0px)",
           paddingLeft: "env(safe-area-inset-left, 0px)",
           paddingRight: "env(safe-area-inset-right, 0px)",
           overflow: "hidden",
