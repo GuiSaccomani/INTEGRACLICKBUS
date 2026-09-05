@@ -163,6 +163,7 @@ export function Screen({ children, bg, style }: {
 }) {
   const ds = useDS();
   const { textSize } = useA11y();
+  const a11yZoom = textSize === "xl" ? 1.25 : textSize === "large" ? 1.12 : 1;
   return (
     <div
       className={`screen-container a11y-text-${textSize}`}
@@ -172,6 +173,7 @@ export function Screen({ children, bg, style }: {
         display: "flex", flexDirection: "column",
         fontFamily: Fonts.body,
         overflow: "hidden",
+        zoom: a11yZoom,
         ...style,
       }}
     >

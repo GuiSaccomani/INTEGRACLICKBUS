@@ -52,22 +52,49 @@ iframe[src*="netlify"],
 }
 
 /* ═══════════════════════════════════════════════
-   ACESSIBILIDADE REAL FUNCIONAL
+   ACESSIBILIDADE REAL FUNCIONAL EM TODO O SISTEMA
 ════════════════════════════════════════════════ */
 
-/* Escala de texto real e visível */
-html.a11y-text-large {
+/* Escala de texto e interface para TODO O SISTEMA (todas as telas) */
+html.a11y-text-large,
+html.a11y-text-large #root,
+html.a11y-text-large .screen-container {
   font-size: 18px !important;
-}
-html.a11y-text-large .screen-scroll-body {
-  zoom: 1.18 !important;
+  zoom: 1.12;
 }
 
-html.a11y-text-xl {
+html.a11y-text-xl,
+html.a11y-text-xl #root,
+html.a11y-text-xl .screen-container {
   font-size: 20px !important;
+  zoom: 1.25;
 }
-html.a11y-text-xl .screen-scroll-body {
-  zoom: 1.36 !important;
+
+/* Ampliação tipográfica universal para textos do app */
+html.a11y-text-large p,
+html.a11y-text-large span,
+html.a11y-text-large button,
+html.a11y-text-large a,
+html.a11y-text-large label,
+html.a11y-text-large h1,
+html.a11y-text-large h2,
+html.a11y-text-large h3,
+html.a11y-text-large h4,
+html.a11y-text-large input {
+  font-size: 1.12em !important;
+}
+
+html.a11y-text-xl p,
+html.a11y-text-xl span,
+html.a11y-text-xl button,
+html.a11y-text-xl a,
+html.a11y-text-xl label,
+html.a11y-text-xl h1,
+html.a11y-text-xl h2,
+html.a11y-text-xl h3,
+html.a11y-text-xl h4,
+html.a11y-text-xl input {
+  font-size: 1.26em !important;
 }
 
 /* Alto contraste reforçado */

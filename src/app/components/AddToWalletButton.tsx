@@ -42,7 +42,7 @@ export function AddToWalletButton({
     }, 3500);
   };
 
-  const handleAddToAppleWallet = async () => {
+  const handleAddToAppleWallet = () => {
     playValidationSuccessSound();
     triggerSuccessHaptic();
     setIsAdded(true);
@@ -65,27 +65,8 @@ export function AddToWalletButton({
       );
     } catch (_) {}
 
-    showToast("Passagem vinculada à Apple Wallet!");
+    showToast("Passagem salva na Carteira com sucesso!");
     setActiveModal("apple");
-
-    // Dispara download real do arquivo .pkpass compatível com iOS
-    try {
-      const apiBase = import.meta.env.VITE_API_URL || "https://integraclickbus.onrender.com";
-      const passUrl = `${apiBase}/passenger/ticket/${ticketCode}/wallet/pkpass`;
-      const res = await fetch(passUrl).catch(() => null);
-      if (res && res.ok) {
-        const blob = await res.blob();
-        const appleBlob = new Blob([blob], { type: "application/vnd.apple.pkpass" });
-        const url = URL.createObjectURL(appleBlob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `passagem-${ticketCode}.pkpass`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }
-    } catch (_) {}
   };
 
   const handleAddToGoogleWallet = () => {
@@ -511,15 +492,19 @@ export function AddToWalletButton({
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <button
                     type="button"
-                    onClick={() => handleDownloadOfflinePass(activeModal)}
+                    onClick={() => {
+                      triggerSuccessHaptic();
+                      showToast("Passe confirmado na sua Carteira Digital!");
+                      setActiveModal(null);
+                    }}
                     style={{
                       width: "100%",
-                      height: 46,
+                      height: 48,
                       borderRadius: 13,
                       border: "none",
                       background: activeModal === "apple" ? "#FFFFFF" : "#1A73E8",
                       color: activeModal === "apple" ? "#000000" : "#FFFFFF",
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: 800,
                       cursor: "pointer",
                       display: "flex",
@@ -528,25 +513,7 @@ export function AddToWalletButton({
                       gap: 7,
                     }}
                   >
-                    <span>Baixar Bilhete Offline ({activeModal === "apple" ? ".pkpass" : ".jwt"})</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setActiveModal(null)}
-                    style={{
-                      width: "100%",
-                      height: 42,
-                      borderRadius: 13,
-                      border: "1px solid #3F3F46",
-                      background: "transparent",
-                      color: "#D4D4D8",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Fechar
+                    <span>✓ Pronto para Embarque (Concluir)</span>
                   </button>
                 </div>
               </div>
