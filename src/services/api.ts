@@ -4,8 +4,9 @@
  */
 
 function getApiBaseUrl(): string {
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
+  const env = (import.meta as any).env;
+  if (env && env.VITE_API_URL) {
+    return env.VITE_API_URL;
   }
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;

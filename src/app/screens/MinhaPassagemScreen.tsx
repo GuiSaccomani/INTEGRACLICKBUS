@@ -2,7 +2,6 @@ import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
 import { DS, Screen, ScrollBody } from "../components/MobileLayout";
-import { AddToWalletButton } from "../components/AddToWalletButton";
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
@@ -24,15 +23,15 @@ function TicketDetail({ label, value, icon }: { label: string; value: string; ic
     }}>
       <div style={{
         width: 38, height: 38, borderRadius: 10,
-        background: DS.primaryFaint,
+        background: DS.primaryLight,
         display: "flex", alignItems: "center", justifyContent: "center",
         flexShrink: 0,
       }}>
         {icon}
       </div>
       <div style={{ flex: 1 }}>
-        <p style={{ margin: 0, fontSize: 11, color: DS.textSecondary, fontWeight: 500 }}>{label}</p>
-        <p style={{ margin: "2px 0 0", fontSize: 15, fontWeight: 700, color: DS.textPrimary }}>{value}</p>
+        <p style={{ margin: 0, fontSize: 11, color: DS.text2, fontWeight: 500 }}>{label}</p>
+        <p style={{ margin: "2px 0 0", fontSize: 15, fontWeight: 700, color: DS.text1 }}>{value}</p>
       </div>
     </div>
   );
@@ -62,11 +61,11 @@ export function MinhaPassagemScreen() {
           }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path d="M15 18l-6-6 6-6" stroke={DS.textPrimary} strokeWidth="2.2"
+            <path d="M15 18l-6-6 6-6" stroke={DS.text1} strokeWidth="2.2"
               strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-        <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700, color: DS.textPrimary }}>
+        <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700, color: DS.text1 }}>
           Minha Passagem
         </span>
         <div style={{ width: 40 }} />
@@ -243,7 +242,7 @@ export function MinhaPassagemScreen() {
             {/* NFC chip indicator */}
             <div style={{
               marginTop: 16,
-              background: DS.primaryFaint,
+              background: DS.primaryLight,
               border: `1.5px solid ${DS.primaryMid}`,
               borderRadius: 14, padding: "12px 16px",
               display: "flex", alignItems: "center", gap: 12,
@@ -262,7 +261,7 @@ export function MinhaPassagemScreen() {
               </div>
               <div>
                 <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: DS.primary }}>Credencial NFC integrada</p>
-                <p style={{ margin: "2px 0 0", fontSize: 12, color: DS.textSecondary }}>Passagem pronta para embarque digital</p>
+                <p style={{ margin: "2px 0 0", fontSize: 12, color: DS.text2 }}>Passagem pronta para embarque digital</p>
               </div>
             </div>
           </div>
@@ -275,15 +274,6 @@ export function MinhaPassagemScreen() {
           transition={{ delay: 0.2, duration: 0.4 }}
           style={{ padding: "16px 0 36px", display: "flex", flexDirection: "column", gap: 12 }}
         >
-          <AddToWalletButton
-            passengerName="Carlos Eduardo Lima"
-            departure="São Paulo - Tietê"
-            arrival="Belo Horizonte"
-            seat="14A"
-            ticketCode="ITG-4829-SP"
-            qrValue="INTEGRA-PASS-4829-SP"
-          />
-
           <button
             onClick={() => nav("/checkin")}
             style={{

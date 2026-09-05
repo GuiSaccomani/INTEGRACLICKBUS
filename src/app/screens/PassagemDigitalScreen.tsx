@@ -7,7 +7,6 @@ import { passengerApi, TicketDetails } from "../../services/api";
 import { QRCodeRenderer } from "../components/QRCodeRenderer";
 import { nfcService } from "../../services/nfc";
 import { playValidationSuccessSound, triggerSuccessHaptic } from "../../services/sound";
-import { AddToWalletButton } from "../components/AddToWalletButton";
 
 const TIMELINE_STEPS = [
   { label: "Passagem confirmada", sub: "Compra identificada no sistema", done: true },
@@ -273,17 +272,7 @@ export function PassagemDigitalScreen() {
             </motion.div>
           </div>
 
-          {/* ── BOTÃO ADICIONAR À CARTEIRA ── */}
-          <div style={{ marginBottom: 16 }}>
-            <AddToWalletButton
-              passengerName={passengerName}
-              departure={departureCity}
-              arrival={arrivalCity}
-              seat={seatNumber}
-              ticketCode={ticketData?.ticketId || "ITG-4829-SP"}
-              qrValue={credentialRef}
-            />
-          </div>
+
 
           {/* ── PRÓXIMO PASSO: INSTRUÇÕES DE VALIDAÇÃO (NFC & QR) ── */}
           <div
