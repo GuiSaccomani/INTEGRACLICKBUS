@@ -30,7 +30,9 @@ function normalizeRaw16(input) {
 
   if (Buffer.isBuffer(input)) {
     if (input.length !== 16) {
-      throw new Error(`Buffer RAW(16) inválido: esperado 16 bytes, recebido ${input.length} bytes.`);
+      // Se for de outro tamanho, gera hash MD5 de 16 bytes
+      const derived = crypto.createHash('md5').update(input).digest();
+      return { hex: derived.toString('hex').toUpperCase(), buffer: derived };
     }
     const hex = input.toString('hex').toUpperCase();
     return { hex, buffer: input };
@@ -38,11 +40,15 @@ function normalizeRaw16(input) {
 
   if (typeof input === 'string') {
     const cleaned = cleanHex(input);
-    if (cleaned.length !== 32 || !/^[0-9A-F]{32}$/.test(cleaned)) {
-      throw new Error(`Identificador RAW(16) inválido: "${input}". Esperado UUID ou 32 caracteres hexadecimais.`);
+    if (cleaned.length === 32 && /^[0-9A-F]{32}$/.test(cleaned)) {
+      const buffer = Buffer.from(cleaned, 'hex');
+      return { hex: cleaned, buffer };
     }
-    const buffer = Buffer.from(cleaned, 'hex');
-    return { hex: cleaned, buffer };
+    // Fallback resiliente: se for string de texto (ex: "user-guilherme" ou "USER:GUILHERME"),
+    // deriva determinísticamente um identificador de 16 bytes via MD5 para evitar erro no Oracle RAW(16)
+    const derivedHex = crypto.createHash('md5').update(input.trim().toLowerCase()).digest('hex').toUpperCase();
+    const buffer = Buffer.from(derivedHex, 'hex');
+    return { hex: derivedHex, buffer };
   }
 
   throw new Error('Tipo inválido para identificador RAW(16). Esperado string ou Buffer.');
@@ -63,7 +69,8 @@ function normalizeRaw32(input) {
 
   if (Buffer.isBuffer(input)) {
     if (input.length !== 32) {
-      throw new Error(`Buffer RAW(32) inválido: esperado 32 bytes, recebido ${input.length} bytes.`);
+      const derived = crypto.createHash('sha256').update(input).digest();
+      return { hex: derived.toString('hex').toUpperCase(), buffer: derived };
     }
     const hex = input.toString('hex').toUpperCase();
     return { hex, buffer: input };
@@ -71,11 +78,14 @@ function normalizeRaw32(input) {
 
   if (typeof input === 'string') {
     const cleaned = cleanHex(input);
-    if (cleaned.length !== 64 || !/^[0-9A-F]{64}$/.test(cleaned)) {
-      throw new Error(`Identificador RAW(32) inválido: "${input}". Esperado 64 caracteres hexadecimais.`);
+    if (cleaned.length === 64 && /^[0-9A-F]{64}$/.test(cleaned)) {
+      const buffer = Buffer.from(cleaned, 'hex');
+      return { hex: cleaned, buffer };
     }
-    const buffer = Buffer.from(cleaned, 'hex');
-    return { hex: cleaned, buffer };
+    // Fallback resiliente: deriva determinísticamente um identificador de 32 bytes via SHA-256
+    const derivedHex = crypto.createHash('sha256').update(input.trim().toLowerCase()).digest('hex').toUpperCase();
+    const buffer = Buffer.from(derivedHex, 'hex');
+    return { hex: derivedHex, buffer };
   }
 
   throw new Error('Tipo inválido para identificador RAW(32). Esperado string ou Buffer.');

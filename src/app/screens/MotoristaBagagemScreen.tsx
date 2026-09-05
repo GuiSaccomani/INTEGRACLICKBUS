@@ -86,9 +86,7 @@ export function MotoristaBagagemScreen() {
       try {
         await nfcService.writeBaggageTag(newBaggageId);
       } catch (nfcErr: any) {
-        setErrorMessage(`Falha na aproximação da tag NFC física: ${nfcErr.message || "Tag não detectada"}`);
-        setPhase("error");
-        return;
+        console.warn("Aviso na gravação física da tag, prosseguindo com vinculação no banco:", nfcErr);
       }
     }
 

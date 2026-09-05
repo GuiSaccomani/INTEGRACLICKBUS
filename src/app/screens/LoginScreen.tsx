@@ -140,33 +140,38 @@ export function LoginScreen() {
         return;
       }
     } catch (err: any) {
-      // Quando a API/Oracle não estiver conectada localmente, aceita as contas pré-definidas para teste da equipe
-      console.warn("[Auth] Conexão remota/local offline. Utilizando conta de teste pré-configurada para:", loginEmail);
+      // Se as credenciais estiverem incorretas no banco de dados
+      if (err.status === 401 || (err.message && err.message.toLowerCase().includes("credenciais"))) {
+        setErrorMsg("E-mail ou senha incorretos.");
+        return;
+      }
+
+      // Se a API retornou outro erro de requisição
+      if (err.status && err.status >= 400) {
+        setErrorMsg(err.message || "E-mail ou senha incorretos.");
+        return;
+      }
+
+      // Se estiver totalmente offline (sem rede), valida estritamente a senha padrão
+      if (err.isOffline || (typeof navigator !== "undefined" && !navigator.onLine)) {
+        if (loginSenha === "123456") {
+          const testUser = isDriverTarget
+            ? { userId: "B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6E7", userName: "Carlos Eduardo Mendes", userEmail: loginEmail, roles: { isPassenger: false, isDriver: true, isOperator: false } }
+            : { userId: "A1B2C3D4E5F64A7B8C9D0E1F2A3B4C5D", userName: "Guilherme Santos", userEmail: loginEmail, roles: { isPassenger: true, isDriver: false, isOperator: false } };
+          localStorage.setItem("integra_user", JSON.stringify(testUser));
+          localStorage.setItem("integra_user_role", isDriverTarget ? "driver" : "passenger");
+          if (isDriverTarget) nav("/motorista/home"); else nav("/home");
+          return;
+        } else {
+          setErrorMsg("E-mail ou senha incorretos.");
+          return;
+        }
+      }
+
+      setErrorMsg("Falha ao conectar ao banco de dados.");
+      return;
     } finally {
       setLoading(false);
-    }
-
-    // Contas de teste garantidas para apresentação e testes locais
-    if (isDriverTarget) {
-      const driverUser = {
-        userId: "driver-carlos",
-        userName: "Carlos Eduardo Mendes",
-        userEmail: loginEmail,
-        roles: { isPassenger: false, isDriver: true, isOperator: false },
-      };
-      localStorage.setItem("integra_user", JSON.stringify(driverUser));
-      localStorage.setItem("integra_user_role", "driver");
-      nav("/motorista/home");
-    } else {
-      const passengerUser = {
-        userId: "user-guilherme",
-        userName: "Guilherme Santos",
-        userEmail: loginEmail,
-        roles: { isPassenger: true, isDriver: false, isOperator: false },
-      };
-      localStorage.setItem("integra_user", JSON.stringify(passengerUser));
-      localStorage.setItem("integra_user_role", "passenger");
-      nav("/home");
     }
   };
 

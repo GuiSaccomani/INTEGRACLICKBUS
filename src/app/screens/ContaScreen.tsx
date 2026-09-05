@@ -164,7 +164,9 @@ export function ContaScreen() {
     if (rawUser) currentUser = JSON.parse(rawUser);
   } catch {}
 
-  const currentUserId = currentUser?.userId || "user-guilherme";
+  // Garante que o ID do usuário seja sempre um identificador válido de 32 hex chars
+  const rawId = currentUser?.userId || "A1B2C3D4E5F64A7B8C9D0E1F2A3B4C5D";
+  const currentUserId = rawId.length === 32 || rawId.length === 36 ? rawId : "A1B2C3D4E5F64A7B8C9D0E1F2A3B4C5D";
 
   useEffect(() => {
     async function checkBio() {

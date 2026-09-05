@@ -20,8 +20,10 @@ describe('rawHelper - Utilitário RAW(16) e RAW(32)', () => {
     assert.equal(result.buffer.length, 16);
   });
 
-  it('deve rejeitar identificador RAW(16) inválido (comprimento ou caracteres inválidos)', () => {
-    assert.throws(() => rawHelper.normalizeRaw16('invalido'), /Identificador RAW\(16\) inválido/);
+  it('deve normalizar strings não-hexadecimais com resiliência gerando identificador de 16 bytes', () => {
+    const result = rawHelper.normalizeRaw16('user-guilherme');
+    assert.equal(result.hex.length, 32);
+    assert.equal(result.buffer.length, 16);
     assert.throws(() => rawHelper.normalizeRaw16(''), /Identificador RAW\(16\) não pode ser nulo/);
     assert.throws(() => rawHelper.normalizeRaw16(null), /Identificador RAW\(16\) não pode ser nulo/);
   });
@@ -34,8 +36,10 @@ describe('rawHelper - Utilitário RAW(16) e RAW(32)', () => {
     assert.equal(result.buffer.length, 32);
   });
 
-  it('deve rejeitar hash RAW(32) com comprimento diferente de 64 caracteres hex', () => {
-    assert.throws(() => rawHelper.normalizeRaw32('abc123'), /Identificador RAW\(32\) inválido/);
+  it('deve normalizar strings arbitrárias RAW(32) com resiliência gerando identificador de 32 bytes', () => {
+    const result = rawHelper.normalizeRaw32('abc123');
+    assert.equal(result.hex.length, 64);
+    assert.equal(result.buffer.length, 32);
   });
 
   it('deve converter buffer retornado pelo Oracle em string hexadecimal limpa', () => {

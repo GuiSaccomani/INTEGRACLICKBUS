@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import { useDS, Screen, BtnPrimary, StatusBadge, Fonts } from "../components/MobileLayout";
 import { passengerApi, TicketDetails } from "../../services/api";
 import { QRCodeRenderer } from "../components/QRCodeRenderer";
+import { AddToWalletButton } from "../components/AddToWalletButton";
 import { playValidationSuccessSound, triggerSuccessHaptic } from "../../services/sound";
 
 export function QRCodeScreen() {
@@ -183,9 +184,18 @@ export function QRCodeScreen() {
           flexShrink: 0,
           display: "flex",
           flexDirection: "column",
-          gap: 10,
+          gap: 12,
         }}
       >
+        <AddToWalletButton
+          passengerName={passengerName}
+          departure={departureCity}
+          arrival={arrivalCity}
+          seat={seatNumber}
+          ticketCode={ticketData?.ticketId || "ITG-4829-SP"}
+          qrValue={credentialRef}
+        />
+
         <BtnPrimary
           label="Voltar para a passagem"
           onClick={() => nav("/passagem")}
