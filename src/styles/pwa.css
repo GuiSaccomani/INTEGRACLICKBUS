@@ -1,7 +1,6 @@
 /* ═══════════════════════════════════════════════
    ÍNTEGRA — PWA & Safe Area Styles
-   Garante adaptação impecável em standalone e mobile real
-   preservando o mockup de iPhone no desktop.
+   Adaptação 100% responsiva em qualquer tela
 ════════════════════════════════════════════════ */
 
 :root {
@@ -11,50 +10,45 @@
   --sar: env(safe-area-inset-right, 0px);
 }
 
-/* Responsividade Mobile e PWA Standalone */
-@media (max-width: 480px), (display-mode: standalone) {
-  html, body {
-    overflow: hidden;
-    height: 100%;
-    width: 100%;
-    position: fixed;
-    touch-action: manipulation;
-  }
+html, body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #F9FAFB;
+  -webkit-tap-highlight-color: transparent;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  touch-action: manipulation;
+}
 
-  .pwa-device-wrapper {
-    padding: 0 !important;
-    background: #0D0118 !important;
-    width: 100vw !important;
-    height: 100dvh !important;
-    max-height: 100dvh !important;
-  }
+#root {
+  width: 100%;
+  height: 100%;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
 
-  .pwa-phone-frame {
-    width: 100vw !important;
-    height: 100dvh !important;
-    max-height: 100dvh !important;
-    border-radius: 0 !important;
-  }
-
-  /* Oculta moldura de titânio, botões físicos simulados e Dynamic Island artificial no celular real */
-  .pwa-titanium-body,
-  .pwa-outer-glow,
-  .pwa-side-button,
-  .pwa-dynamic-island,
-  .pwa-simulated-status-bar {
-    display: none !important;
-  }
-
-  .pwa-screen-glass {
-    inset: 0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    padding-top: var(--sat) !important;
-  }
-
-  .pwa-bottom-nav {
-    padding-bottom: calc(var(--sab) + 10px) !important;
-  }
+/* ═══════════════════════════════════════════════
+   OCULTAR TOTALMENTE QUALQUER BADGE / DRAWER NETLIFY
+════════════════════════════════════════════════ */
+#netlify-drawer,
+.netlify-drawer,
+[class*="netlify-drawer"],
+[id*="netlify-drawer"],
+iframe[src*="netlify"],
+[data-netlify-deploy-id],
+.netlify-badge,
+[class*="netlify-badge"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  height: 0 !important;
+  width: 0 !important;
+  position: absolute !important;
+  left: -9999px !important;
 }
 
 /* ═══════════════════════════════════════════════
@@ -76,7 +70,6 @@ html.a11y-text-xl .screen-scroll-body {
   zoom: 1.36 !important;
 }
 
-
 /* Alto contraste reforçado */
 html.hc * {
   text-shadow: none !important;
@@ -85,9 +78,6 @@ html.hc button,
 html.hc input,
 html.hc [role="button"] {
   border-width: 2px !important;
-}
-html.hc .pwa-screen-glass {
-  border: 2px solid #fff !important;
 }
 
 /* Redução de animações */
@@ -107,4 +97,3 @@ html.screen-reader-active a:focus-visible {
   outline: 3px solid #7B2CBF !important;
   outline-offset: 3px !important;
 }
-
