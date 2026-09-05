@@ -1,0 +1,18 @@
+[package]
+name = "integra-tauri-poc"
+version = "0.1.0"
+description = "POC Tauri 2 para o ÍNTEGRA"
+authors = ["Equipe ÍNTEGRA"]
+edition = "2021"
+
+[lib]
+name = "integra_tauri_poc_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = [] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

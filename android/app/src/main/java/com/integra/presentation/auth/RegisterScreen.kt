@@ -32,30 +32,14 @@ import com.integra.ui.theme.*
 
 @Composable
 fun LogoMarkSmall() {
-    Box(
+    androidx.compose.foundation.Image(
+        painter = painterResource(id = com.integra.R.drawable.logo_in),
+        contentDescription = "Logo ÍNTEGRA",
+        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
         modifier = Modifier
-            .size(32.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(DS_Primary),
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(modifier = Modifier.size(18.dp)) {
-            drawArc(
-                color = Color.White,
-                startAngle = 180f,
-                sweepAngle = -180f,
-                useCenter = false,
-                topLeft = Offset(2.dp.toPx(), 2.dp.toPx()),
-                size = androidx.compose.ui.geometry.Size(14.dp.toPx(), 14.dp.toPx()),
-                style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round)
-            )
-            drawCircle(
-                color = Color.White,
-                radius = 1.5.dp.toPx(),
-                center = Offset(9.dp.toPx(), 9.dp.toPx())
-            )
-        }
-    }
+            .height(26.dp)
+            .width(42.dp)
+    )
 }
 
 @Composable

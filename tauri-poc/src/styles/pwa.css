@@ -1,0 +1,110 @@
+/* ═══════════════════════════════════════════════
+   ÍNTEGRA — PWA & Safe Area Styles
+   Garante adaptação impecável em standalone e mobile real
+   preservando o mockup de iPhone no desktop.
+════════════════════════════════════════════════ */
+
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+/* Responsividade Mobile e PWA Standalone */
+@media (max-width: 480px), (display-mode: standalone) {
+  html, body {
+    overflow: hidden;
+    height: 100%;
+    width: 100%;
+    position: fixed;
+    touch-action: manipulation;
+  }
+
+  .pwa-device-wrapper {
+    padding: 0 !important;
+    background: #0D0118 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+  }
+
+  .pwa-phone-frame {
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+  }
+
+  /* Oculta moldura de titânio, botões físicos simulados e Dynamic Island artificial no celular real */
+  .pwa-titanium-body,
+  .pwa-outer-glow,
+  .pwa-side-button,
+  .pwa-dynamic-island,
+  .pwa-simulated-status-bar {
+    display: none !important;
+  }
+
+  .pwa-screen-glass {
+    inset: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding-top: var(--sat) !important;
+  }
+
+  .pwa-bottom-nav {
+    padding-bottom: calc(var(--sab) + 10px) !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   ACESSIBILIDADE REAL FUNCIONAL
+════════════════════════════════════════════════ */
+
+/* Escala de texto real e visível */
+html.a11y-text-large {
+  font-size: 18px !important;
+}
+html.a11y-text-large .screen-scroll-body {
+  zoom: 1.18 !important;
+}
+
+html.a11y-text-xl {
+  font-size: 20px !important;
+}
+html.a11y-text-xl .screen-scroll-body {
+  zoom: 1.36 !important;
+}
+
+
+/* Alto contraste reforçado */
+html.hc * {
+  text-shadow: none !important;
+}
+html.hc button,
+html.hc input,
+html.hc [role="button"] {
+  border-width: 2px !important;
+}
+html.hc .pwa-screen-glass {
+  border: 2px solid #fff !important;
+}
+
+/* Redução de animações */
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Leitor de tela com contornos visíveis ao navegar por teclado ou foco */
+html.screen-reader-active button:focus-visible,
+html.screen-reader-active input:focus-visible,
+html.screen-reader-active a:focus-visible {
+  outline: 3px solid #7B2CBF !important;
+  outline-offset: 3px !important;
+}
+

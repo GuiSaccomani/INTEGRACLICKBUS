@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">ÍNTEGRA</string>
+    <string name="hce_service_desc">Serviço de Emulação de Cartão NFC ÍNTEGRA para Embarque Digital</string>
+    <string name="hce_aid_desc">Validação de Credencial ÍNTEGRA via Host Card Emulation (HCE)</string>
+</resources>

@@ -1,0 +1,9 @@
+{
+  "$schema": "https://schema.tauri.app/config/2/capability",
+  "identifier": "default",
+  "description": "Permissões padrão de IPC para a POC do ÍNTEGRA",
+  "windows": ["main"],
+  "permissions": [
+    "core:default"
+  ]
+}

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/hce_service_desc"
+    android:requireDeviceUnlock="false">
+    <aid-group
+        android:description="@string/hce_aid_desc"
+        android:category="other">
+        <!-- AID oficial do ÍNTEGRA (ASCII "INTEGRA" em hexadecimal) -->
+        <aid-filter android:name="F0494E5445475241"/>
+    </aid-group>
+</host-apdu-service>

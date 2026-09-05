@@ -55,41 +55,34 @@ fun WelcomeScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Logo Mark
+            // Logo Mark Oficial ÍNTEGRA
             Box(
                 modifier = Modifier
-                    .size(88.dp)
-                    .shadow(20.dp, RoundedCornerShape(26.dp), spotColor = DS_Primary.copy(alpha = 0.22f))
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(DS_PrimaryDark, DS_Primary)
-                        )
-                    ),
+                    .width(140.dp)
+                    .height(88.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Canvas(modifier = Modifier.size(52.dp)) {
-                    val strokeWidth = 3.dp.toPx()
-                    // Left Arc
-                    drawArc(
-                        color = Color.White,
-                        startAngle = 180f,
-                        sweepAngle = -180f,
-                        useCenter = false,
-                        topLeft = Offset(8.dp.toPx(), 8.dp.toPx()),
-                        size = androidx.compose.ui.geometry.Size(36.dp.toPx(), 36.dp.toPx()),
-                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                    )
-                    // Center dot
-                    drawCircle(
-                        color = Color.White,
-                        radius = 4.dp.toPx(),
-                        center = Offset(26.dp.toPx(), 26.dp.toPx())
-                    )
-                }
+                // Ambient glow da marca
+                Box(
+                    modifier = Modifier
+                        .size(120.dp, 70.dp)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(DS_Primary.copy(alpha = 0.45f), Color.Transparent)
+                            ),
+                            shape = CircleShape
+                        )
+                )
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(id = com.integra.R.drawable.logo_in),
+                    contentDescription = "Logotipo Oficial ÍNTEGRA",
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                )
             }
             
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
             // Wordmark
             Text(
