@@ -42,7 +42,7 @@ export function AddToWalletButton({
     }, 3500);
   };
 
-  const handleAddToAppleWallet = () => {
+  const handleAddToAppleWallet = async () => {
     playValidationSuccessSound();
     triggerSuccessHaptic();
     setIsAdded(true);
@@ -65,8 +65,27 @@ export function AddToWalletButton({
       );
     } catch (_) {}
 
-    showToast("Passagem vinculada à Apple Wallet com sucesso!");
+    showToast("Passagem vinculada à Apple Wallet!");
     setActiveModal("apple");
+
+    // Dispara download real do arquivo .pkpass compatível com iOS
+    try {
+      const apiBase = import.meta.env.VITE_API_URL || "https://integraclickbus.onrender.com";
+      const passUrl = `${apiBase}/passenger/ticket/${ticketCode}/wallet/pkpass`;
+      const res = await fetch(passUrl).catch(() => null);
+      if (res && res.ok) {
+        const blob = await res.blob();
+        const appleBlob = new Blob([blob], { type: "application/vnd.apple.pkpass" });
+        const url = URL.createObjectURL(appleBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `passagem-${ticketCode}.pkpass`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (_) {}
   };
 
   const handleAddToGoogleWallet = () => {
@@ -463,9 +482,31 @@ export function AddToWalletButton({
                   </span>
                 </div>
 
-                <p style={{ margin: "0 0 18px", fontSize: 12, color: "#A1A1AA", lineHeight: 1.45 }}>
+                <p style={{ margin: "0 0 14px", fontSize: 12, color: "#A1A1AA", lineHeight: 1.45 }}>
                   Apresente este bilhete ao leitor do ônibus ou use por aproximação NFC.
                 </p>
+
+                {/* Box de Orientação para iPhone e Android */}
+                {activeModal === "apple" && (
+                  <div
+                    style={{
+                      background: "rgba(255,255,255,0.06)",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      borderRadius: 14,
+                      padding: "12px 14px",
+                      textAlign: "left",
+                      marginBottom: 14,
+                    }}
+                  >
+                    <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 800, color: "#FFFFFF", display: "flex", alignItems: "center", gap: 6 }}>
+                      <span>💡</span> Como encontrar no seu iPhone:
+                    </p>
+                    <p style={{ margin: 0, fontSize: 11, color: "#D4D4D8", lineHeight: 1.45 }}>
+                      • O atalho de <b>2 cliques no botão lateral</b> do iPhone é reservado pela Apple para cartões de crédito (Apple Pay).<br />
+                      • Para passagens e bilhetes, abra o app <b>Carteira (Wallet)</b> na tela de início do iPhone ou acesse diretamente aqui pelo app!
+                    </p>
+                  </div>
+                )}
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <button
