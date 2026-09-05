@@ -148,30 +148,14 @@ fun LoginScreen(
                     .padding(top = 56.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Box(
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(id = com.integra.R.drawable.logo_in),
+                    contentDescription = "Logo ÍNTEGRA",
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                     modifier = Modifier
-                        .size(52.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(DS_Primary),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Canvas(modifier = Modifier.size(32.dp)) {
-                        drawArc(
-                            color = Color.White,
-                            startAngle = 180f,
-                            sweepAngle = -180f,
-                            useCenter = false,
-                            topLeft = Offset(4.dp.toPx(), 4.dp.toPx()),
-                            size = androidx.compose.ui.geometry.Size(24.dp.toPx(), 24.dp.toPx()),
-                            style = Stroke(width = 2.2.dp.toPx(), cap = StrokeCap.Round)
-                        )
-                        drawCircle(
-                            color = Color.White,
-                            radius = 2.2.dp.toPx(),
-                            center = Offset(16.dp.toPx(), 16.dp.toPx())
-                        )
-                    }
-                }
+                        .height(36.dp)
+                        .width(58.dp)
+                )
                 
                 Text(
                     text = "Bem-vindo de volta",
@@ -314,26 +298,6 @@ fun LoginScreen(
             ) {
                 Text(
                     text = "Entrar com biometria / Passkey",
-                    color = DS_Text1,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-
-            // Driver Direct Access
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp)
-                    .height(56.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(DS_Surface)
-                    .border(1.5.dp, DS_BorderMd, RoundedCornerShape(16.dp))
-                    .clickable { onNavigateToDriver() },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Acesso Rápido Motorista",
                     color = DS_Text1,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold

@@ -194,18 +194,6 @@ fun PassengerContaScreen(
                     modifier = Modifier.padding(top = 2.dp)
                 )
             }
-
-            // Botão para alternar Modo Motorista (se necessário)
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(colors.primaryLight)
-                    .border(1.dp, colors.primaryMid, RoundedCornerShape(8.dp))
-                    .clickable { onNavigateToDriver() }
-                    .padding(horizontal = 10.dp, vertical = 6.dp)
-            ) {
-                Text("Modo Motorista", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = colors.primary)
-            }
         }
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(colors.border))
 

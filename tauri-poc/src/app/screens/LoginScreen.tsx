@@ -171,18 +171,6 @@ export function LoginScreen() {
   };
 
 
-  const setPresetCredentials = (type: "passenger" | "driver") => {
-    if (type === "passenger") {
-      setEmail("passageiro@integra.com");
-      setSenha("123456");
-      setErrorMsg("");
-    } else {
-      setEmail("motorista@integra.com");
-      setSenha("123456");
-      setErrorMsg("");
-    }
-  };
-
   return (
     <Screen bg={DS.surface}>
       {/* Header */}
@@ -208,36 +196,6 @@ export function LoginScreen() {
       >
         <Field label="E-mail" type="email" placeholder="seu.email@exemplo.com" value={email} onChange={setEmail} />
         <Field label="Senha" type="password" placeholder="••••••••" value={senha} onChange={setSenha} />
-
-        {/* Atalhos rápidos de teste */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-          <button
-            type="button"
-            onClick={() => setPresetCredentials("passenger")}
-            style={{
-              flex: 1, padding: "7px 10px", borderRadius: 8,
-              background: email === "passageiro@integra.com" ? DS.primaryLight : DS.border,
-              border: `1px solid ${email === "passageiro@integra.com" ? DS.primary : "transparent"}`,
-              color: email === "passageiro@integra.com" ? DS.primary : DS.text2,
-              fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter', sans-serif",
-            }}
-          >
-            👤 Usar Passageiro
-          </button>
-          <button
-            type="button"
-            onClick={() => setPresetCredentials("driver")}
-            style={{
-              flex: 1, padding: "7px 10px", borderRadius: 8,
-              background: email === "motorista@integra.com" ? DS.primaryLight : DS.border,
-              border: `1px solid ${email === "motorista@integra.com" ? DS.primary : "transparent"}`,
-              color: email === "motorista@integra.com" ? DS.primary : DS.text2,
-              fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter', sans-serif",
-            }}
-          >
-            🚍 Usar Motorista
-          </button>
-        </div>
 
         {errorMsg && (
           <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.2)", marginBottom: 14 }}>
@@ -359,27 +317,6 @@ export function LoginScreen() {
             : bioLoading
             ? "Autenticando..."
             : "Entrar com biometria"}
-        </button>
-
-
-        {/* Driver Access */}
-        <button
-          onClick={() => {
-            localStorage.setItem("integra_user_role", "driver");
-            nav("/motorista/home");
-          }}
-          style={{
-            width: "100%", height: 56, borderRadius: 16, marginTop: 12,
-            border: `1.5px solid ${DS.borderMd}`, background: DS.surface,
-            color: DS.text1, fontSize: 15, fontWeight: 600,
-            cursor: "pointer", fontFamily: "'Inter', sans-serif",
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-          }}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 12 10s-6.7.6-8.5 1.1C2.7 11.3 2 12.1 2 13v3c0 .6.4 1 1 1h2m14 0v1.5c0 .8-.7 1.5-1.5 1.5h-1c-.8 0-1.5-.7-1.5-1.5V17m4 0h-4M5 17v1.5C5 19.3 4.3 20 3.5 20h-1C1.7 20 1 19.3 1 18.5V17m4 0H1M6 6c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2v4H6V6z" stroke={DS.text3} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          Acesso Motorista
         </button>
       </motion.div>
 
