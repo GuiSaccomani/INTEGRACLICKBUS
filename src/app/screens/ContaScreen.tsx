@@ -243,16 +243,6 @@ export function ContaScreen() {
     nav("/login");
   };
 
-  const handleSwitchMode = () => {
-    if (isDriver) {
-      localStorage.setItem("integra_user_role", "passenger");
-      nav("/home");
-    } else {
-      localStorage.setItem("integra_user_role", "driver");
-      nav("/motorista/home");
-    }
-  };
-
   return (
     <Screen bg={DS.bg}>
       {/* Header do Perfil */}
@@ -582,37 +572,6 @@ export function ContaScreen() {
           <LinkRow label="Política de privacidade" onClick={() => setActiveModal("privacidade")} />
           <LinkRow label="Versão do app" value="1.0.0 (PWA)" onClick={() => setActiveModal("versao")} last />
         </SectionCard>
-
-        {/* Alternar modo Motorista / Passageiro */}
-        <button
-          type="button"
-          onClick={handleSwitchMode}
-          style={{
-            width: "100%",
-            height: 50,
-            borderRadius: 14,
-            border: `1.5px solid ${DS.primaryMid}`,
-            background: DS.primaryLight,
-            color: DS.primary,
-            fontSize: 14,
-            fontWeight: 700,
-            cursor: "pointer",
-            fontFamily: "'Inter', sans-serif",
-            marginBottom: 10,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-          }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={DS.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="17 1 21 5 17 9" />
-            <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-            <polyline points="7 23 3 19 7 15" />
-            <path d="M21 13v2a4 4 0 0 1-4 4H3" />
-          </svg>
-          {isDriver ? "Alternar para Modo Passageiro" : "Alternar para Modo Motorista"}
-        </button>
 
         {/* Sair da Conta */}
         <button
