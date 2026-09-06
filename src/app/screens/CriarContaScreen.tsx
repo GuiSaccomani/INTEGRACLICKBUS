@@ -101,25 +101,25 @@ export function CriarContaScreen() {
             transition={{ type: "spring", stiffness: 280, damping: 16 }}
             style={{
               width: 88, height: 88, borderRadius: "50%",
-              background: `linear-gradient(135deg, ${DS.success}, #22a84a)`,
+              background: `linear-gradient(135deg, ${DS.primaryDark}, ${DS.primary})`,
               display: "flex", alignItems: "center", justifyContent: "center",
-              marginBottom: 28, boxShadow: "0 12px 40px rgba(5,150,105,0.35)",
+              marginBottom: 28, boxShadow: DS.shadowPrimary,
             }}
           >
-            <svg width="42" height="42" viewBox="0 0 24 24" fill="none">
-              <motion.path d="M5 12l4 4 10-10" stroke="white" strokeWidth="2.8"
-                strokeLinecap="round" strokeLinejoin="round"
-                initial={{ pathLength: 0 }} animate={{ pathLength: 1 }}
-                transition={{ delay: 0.3, duration: 0.5 }}
-              />
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9.5" stroke="white" strokeWidth="2" />
+              <path d="M12 11v5.5" stroke="white" strokeWidth="2.4" strokeLinecap="round" />
+              <circle cx="12" cy="7.6" r="1.3" fill="white" />
             </svg>
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} style={{ textAlign: "center" }}>
             <h1 style={{ margin: "0 0 8px", fontSize: 26, fontWeight: 900, color: DS.text1, letterSpacing: "-0.8px" }}>
-              Conta criada!
+              Cadastro validado
             </h1>
             <p style={{ margin: "0 0 32px", fontSize: 15, color: DS.text2, lineHeight: 1.6 }}>
-              Bem-vindo, {nome.split(" ")[0]}! Sua conta foi criada com sucesso.
+              Os dados de {nome.split(" ")[0]} passaram por todas as validações do
+              formulário. A criação de contas não está disponível nesta versão — o
+              acesso é feito com as contas já cadastradas no sistema.
             </p>
             <button
               onClick={() => nav("/login")}
@@ -215,7 +215,7 @@ export function CriarContaScreen() {
           onPointerDown={e => { e.currentTarget.style.transform = "scale(0.975)"; }}
           onPointerUp={e => { e.currentTarget.style.transform = "scale(1)"; }}
         >
-          {step === 1 ? "Continuar" : "Criar conta"}
+          {step === 1 ? "Continuar" : "Validar cadastro"}
         </button>
         {step === 1 && (
           <p style={{ margin: "14px 0 0", textAlign: "center", fontSize: 12, color: DS.text3 }}>
