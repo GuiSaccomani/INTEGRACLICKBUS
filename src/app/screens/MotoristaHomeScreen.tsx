@@ -1,6 +1,10 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useDS, Screen, StatusBadge } from "../components/MobileLayout";
 import { useA11y } from "../components/AccessibilityContext";
+import { driverApi, type TripSummary } from "../../services/api";
+import { getStoredUserId } from "../../services/session";
+import { cityOf } from "../../services/format";
 
 export function MotoristaHomeScreen() {
   const DS = useDS();
@@ -9,6 +13,56 @@ export function MotoristaHomeScreen() {
 
   const titleSize = textSize === "xl" ? 22 : textSize === "large" ? 20 : 18;
   const descSize = textSize === "xl" ? 16 : textSize === "large" ? 14 : 13;
+
+  const [summary, setSummary] = useState<TripSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadCurrentTrip() {
+      const driverId = getStoredUserId();
+      if (!driverId) {
+        if (active) {
+          setLoading(false);
+          setLoadError("Sessão de motorista não encontrada.");
+        }
+        return;
+      }
+
+      try {
+        const { trips } = await driverApi.getTrips(driverId);
+        const currentTrip = Array.isArray(trips) && trips.length > 0 ? trips[0] : null;
+
+        if (!currentTrip?.tripId) {
+          if (active) setLoadError("Nenhuma viagem atribuída a este motorista.");
+          return;
+        }
+
+        const tripSummary = await driverApi.getTripSummary(currentTrip.tripId);
+        if (active) setSummary(tripSummary);
+      } catch (err: any) {
+        if (active) setLoadError(err?.message || "Não foi possível carregar a viagem.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    loadCurrentTrip();
+    return () => { active = false; };
+  }, []);
+
+  // Situação derivada dos embarques já registrados no Oracle
+  const tripStatus: { label: string; kind: "primary" | "success" | "neutral" } = !summary
+    ? { label: "Sem viagem", kind: "neutral" }
+    : summary.boardedCount === 0
+    ? { label: "Aguardando embarque", kind: "neutral" }
+    : summary.boardedCount >= summary.totalTicketsCount
+    ? { label: "Embarque concluído", kind: "success" }
+    : { label: "Em rota", kind: "primary" };
+
+  const metric = (value: number | undefined) => (loading ? "--" : String(value ?? 0));
 
   return (
     <Screen bg={DS.bg}>
@@ -161,24 +215,32 @@ export function MotoristaHomeScreen() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${DS.border}` }}>
               <div>
                 <p style={{ margin: 0, fontSize: 11, color: DS.text3, fontWeight: 600, letterSpacing: "0.5px" }}>PRÓXIMO DESTINO</p>
-                <p style={{ margin: "4px 0 0", fontSize: 18, fontWeight: 800, color: DS.text1, letterSpacing: "-0.3px" }}>Belo Horizonte</p>
+                <p style={{ margin: "4px 0 0", fontSize: 18, fontWeight: 800, color: DS.text1, letterSpacing: "-0.3px" }}>
+                  {loading ? "Carregando..." : cityOf(summary?.arrival)}
+                </p>
               </div>
               <div style={{ textAlign: "right" }}>
-                <StatusBadge label="Em rota" kind="primary" />
+                <StatusBadge label={tripStatus.label} kind={tripStatus.kind} />
               </div>
             </div>
-            
+
+            {loadError && (
+              <p style={{ margin: "0 0 14px", fontSize: 12, color: DS.warning, lineHeight: 1.4 }}>
+                {loadError}
+              </p>
+            )}
+
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
               <div>
-                <p style={{ margin: 0, fontSize: 24, fontWeight: 900, color: DS.text1 }}>38</p>
+                <p style={{ margin: 0, fontSize: 24, fontWeight: 900, color: DS.text1 }}>{metric(summary?.totalTicketsCount)}</p>
                 <p style={{ margin: "2px 0 0", fontSize: 11, color: DS.text3, fontWeight: 600, lineHeight: 1.3 }}>Passageiros<br/>na viagem</p>
               </div>
               <div>
-                <p style={{ margin: 0, fontSize: 24, fontWeight: 900, color: DS.success }}>26</p>
+                <p style={{ margin: 0, fontSize: 24, fontWeight: 900, color: DS.success }}>{metric(summary?.boardedCount)}</p>
                 <p style={{ margin: "2px 0 0", fontSize: 11, color: DS.text3, fontWeight: 600, lineHeight: 1.3 }}>Embarcados<br/>com sucesso</p>
               </div>
               <div>
-                <p style={{ margin: 0, fontSize: 24, fontWeight: 900, color: DS.primary }}>19</p>
+                <p style={{ margin: 0, fontSize: 24, fontWeight: 900, color: DS.primary }}>{metric(summary?.baggageCount)}</p>
                 <p style={{ margin: "2px 0 0", fontSize: 11, color: DS.text3, fontWeight: 600, lineHeight: 1.3 }}>Bagagens<br/>identificadas</p>
               </div>
             </div>

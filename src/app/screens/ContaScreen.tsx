@@ -5,6 +5,9 @@ import { useDS, Screen, ScrollBody, LogoMark, BtnPrimary, BtnGhost, Fonts } from
 import { useA11y } from "../components/AccessibilityContext";
 import { useOperator } from "../components/OperatorContext";
 import { webauthnService, type BiometricSupportStatus, type BiometricDeviceInfo } from "../../services/webauthn";
+import { getStoredUser } from "../../services/session";
+import { cityOf, formatTripDateFull, formatTripTime, shortId } from "../../services/format";
+import { driverApi } from "../../services/api";
 
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
@@ -157,16 +160,18 @@ export function ContaScreen() {
   const [bioMsg, setBioMsg] = useState<{ text: string; type: "success" | "error" | "info" } | null>(null);
   const [userCredentials, setUserCredentials] = useState<BiometricDeviceInfo[]>([]);
 
-  // Carrega usuário atual
-  let currentUser: any = null;
-  try {
-    const rawUser = localStorage.getItem("integra_user");
-    if (rawUser) currentUser = JSON.parse(rawUser);
-  } catch {}
+  // Sessão autenticada persistida no login
+  const currentUser = getStoredUser();
+  const currentUserId = currentUser?.userId || "";
 
-  // Garante que o ID do usuário seja sempre um identificador válido de 32 hex chars
-  const rawId = currentUser?.userId || "A1B2C3D4E5F64A7B8C9D0E1F2A3B4C5D";
-  const currentUserId = rawId.length === 32 || rawId.length === 36 ? rawId : "A1B2C3D4E5F64A7B8C9D0E1F2A3B4C5D";
+  // Dados de exibição vindos exclusivamente da sessão real
+  const displayName = currentUser?.userName || "Usuário ÍNTEGRA";
+  const displayEmail = currentUser?.userEmail || "--";
+  const profileLabel = currentUser?.roles?.isOperator
+    ? "Operador"
+    : currentUser?.roles?.isDriver
+    ? "Motorista"
+    : "Passageiro";
 
   useEffect(() => {
     async function checkBio() {
@@ -239,6 +244,33 @@ export function ContaScreen() {
     location.pathname.startsWith("/motorista") ||
     localStorage.getItem("integra_user_role") === "driver";
 
+  // Viagem atual do motorista, para a seção "Minha Operação"
+  const [driverTrip, setDriverTrip] = useState<{
+    tripDeparture?: string;
+    tripArrival?: string;
+    tripDate?: string;
+    tripOccupation?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isDriver || !currentUserId) return;
+
+    let active = true;
+    async function loadDriverTrip() {
+      try {
+        const { trips } = await driverApi.getTrips(currentUserId);
+        if (active && Array.isArray(trips) && trips.length > 0) {
+          setDriverTrip(trips[0]);
+        }
+      } catch {
+        // A seção exibe "--" quando a viagem não pode ser carregada
+      }
+    }
+
+    loadDriverTrip();
+    return () => { active = false; };
+  }, [isDriver, currentUserId]);
+
   const handleLogout = () => {
     localStorage.removeItem("integra_user");
     localStorage.removeItem("integra_user_role");
@@ -285,7 +317,7 @@ export function ContaScreen() {
           <div style={{ flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: DS.text1, letterSpacing: "-0.4px" }}>
-                {isDriver ? "Carlos Eduardo Mendes" : "Guilherme Santos"}
+                {displayName}
               </p>
               {isDriver && (
                 <span style={{ fontSize: 10, fontWeight: 700, background: DS.successLight, color: DS.success, padding: "2px 6px", borderRadius: 100 }}>
@@ -294,7 +326,7 @@ export function ContaScreen() {
               )}
             </div>
             <p style={{ margin: "2px 0 0", fontSize: 13, color: DS.text2 }}>
-              {isDriver ? "Matrícula DRV-8821 · Operador ClickBus" : "CPF ***.***.***-42 · Passageiro"}
+              {displayEmail} · {profileLabel}
             </p>
           </div>
         </div>
@@ -303,10 +335,13 @@ export function ContaScreen() {
       <ScrollBody style={{ padding: "16px 16px 0" }}>
         {isDriver ? (
           <SectionCard title="Minha Operação">
-            <LinkRow label="Linha alocada" value="São Paulo → Rio de Janeiro" />
-            <LinkRow label="Veículo alocado" value="Ônibus 4022 (Executivo)" />
-            <LinkRow label="Habilitação CNH" value="Categoria D · Válida" />
-            <LinkRow label="Escala da viagem" value="Partida 14:30" last />
+            <LinkRow
+              label="Linha alocada"
+              value={driverTrip ? `${cityOf(driverTrip.tripDeparture)} → ${cityOf(driverTrip.tripArrival)}` : "--"}
+            />
+            <LinkRow label="Data da viagem" value={formatTripDateFull(driverTrip?.tripDate)} />
+            <LinkRow label="Horário de partida" value={formatTripTime(driverTrip?.tripDate)} />
+            <LinkRow label="Ocupação" value={driverTrip?.tripOccupation || "--"} last />
           </SectionCard>
         ) : (
           <SectionCard title="Minha conta">
@@ -645,11 +680,11 @@ export function ContaScreen() {
                 <div>
                   <h3 style={{ fontFamily: Fonts.heading, margin: "0 0 14px", fontSize: 20, color: DS.text1 }}>Dados Pessoais</h3>
                   <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
-                    <DataField label="Nome Completo" value={isDriver ? "Carlos Eduardo Mendes" : "Guilherme Santos"} />
-                    <DataField label="Documento" value={isDriver ? "CNH Categoria D (Válida)" : "CPF ***.***.***-42"} />
-                    <DataField label="E-mail" value={isDriver ? "motorista@integra.com" : "passageiro@integra.com"} />
-                    <DataField label="Telefone" value="(11) 98765-4321" />
-                    <DataField label="Status do Perfil" value="Verificado e Ativo" isSuccess />
+                    <DataField label="Nome Completo" value={displayName} />
+                    <DataField label="E-mail" value={displayEmail} />
+                    <DataField label="Perfil" value={profileLabel} />
+                    <DataField label="Identificador" value={shortId(currentUserId, 16)} />
+                    {currentUserId && <DataField label="Sessão" value="Autenticada" isSuccess />}
                   </div>
                   <BtnPrimary label="Fechar" onClick={() => setActiveModal(null)} />
                 </div>

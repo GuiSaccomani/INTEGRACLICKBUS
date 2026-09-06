@@ -1,8 +1,11 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { motion } from "motion/react";
 import { useDS, Screen, StatusBadge, BtnPrimary, BtnGhost, Fonts } from "../components/MobileLayout";
 import { playValidationSuccessSound, triggerSuccessHaptic } from "../../services/sound";
+import { luggageApi, passengerApi, type TicketDetails } from "../../services/api";
+import { getStoredUserId } from "../../services/session";
+import { cityOf, formatTripDateShort, formatTripTime, shortId } from "../../services/format";
 
 export function PassagemValidadaScreen() {
   const DS = useDS();
@@ -17,17 +20,48 @@ export function PassagemValidadaScreen() {
     luggageId?: string;
   } | null;
 
-  const passengerName = stateData?.passengerName || "Guilherme Santos";
-  const seatNumber = stateData?.seat ? String(stateData.seat) : "18";
-  const departureCity = stateData?.departure || "São Paulo";
-  const arrivalCity = stateData?.arrival || "Rio de Janeiro";
-  const luggageId = stateData?.luggageId || "IN-20481";
+  // Quando a tela não recebe os dados pela navegação, busca a passagem real do usuário
+  const [ticket, setTicket] = useState<TicketDetails | null>(null);
+  const [fallbackLuggageId, setFallbackLuggageId] = useState<string>("");
 
   useEffect(() => {
     // Toca som de sucesso e vibra o dispositivo para gravar o momento da aprovação
     playValidationSuccessSound();
     triggerSuccessHaptic();
   }, []);
+
+  useEffect(() => {
+    if (stateData?.passengerName) return;
+
+    let active = true;
+    async function loadTicket() {
+      const userId = getStoredUserId();
+      if (!userId) return;
+
+      try {
+        const tickets = await passengerApi.getUserTickets(userId);
+        const current = tickets[0] || null;
+        if (!active || !current) return;
+        setTicket(current);
+
+        const { luggages } = await luggageApi.getByTicket(current.ticketId);
+        if (active && luggages?.length) setFallbackLuggageId(luggages[0].baggageId);
+      } catch {
+        // A tela permanece exibindo os campos indisponíveis como "--"
+      }
+    }
+
+    loadTicket();
+    return () => { active = false; };
+  }, [stateData?.passengerName]);
+
+  const passengerName = stateData?.passengerName || ticket?.passengerName || "--";
+  const seatNumber = stateData?.seat != null
+    ? String(stateData.seat)
+    : ticket?.seat != null ? String(ticket.seat) : "--";
+  const departureCity = cityOf(stateData?.departure || ticket?.departure);
+  const arrivalCity = cityOf(stateData?.arrival || ticket?.arrival);
+  const luggageId = stateData?.luggageId || (fallbackLuggageId ? shortId(fallbackLuggageId, 12) : "--");
 
   return (
     <Screen bg={DS.bg}>
@@ -215,9 +249,9 @@ export function PassagemValidadaScreen() {
             </div>
 
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-              <span style={{ color: DS.text3 }}>Horário: <strong style={{ color: DS.text1 }}>14:30</strong></span>
-              <span style={{ color: DS.text3 }}>Classe: <strong style={{ color: DS.text1 }}>Executivo</strong></span>
-              <span style={{ color: DS.text3 }}>Plataforma: <strong style={{ color: DS.text1 }}>P4</strong></span>
+              <span style={{ color: DS.text3 }}>Data: <strong style={{ color: DS.text1 }}>{formatTripDateShort(ticket?.tripDate)}</strong></span>
+              <span style={{ color: DS.text3 }}>Horário: <strong style={{ color: DS.text1 }}>{formatTripTime(ticket?.tripDate)}</strong></span>
+              <span style={{ color: DS.text3 }}>Bilhete: <strong style={{ color: DS.text1 }}>{shortId(ticket?.ticketId, 8)}</strong></span>
             </div>
           </div>
 

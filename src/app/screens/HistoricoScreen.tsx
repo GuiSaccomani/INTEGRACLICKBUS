@@ -1,18 +1,57 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { useDS, Screen, ScrollBody, BackHeader, StatusBadge } from "../components/MobileLayout";
-
-const TRIPS = [
-  { id: 1, from: "São Paulo",       to: "Rio de Janeiro", date: "21 AGO 2025", time: "14:30", status: "Pronta para embarque" as const, kind: "success" as const },
-  { id: 2, from: "São Paulo",       to: "Campinas",        date: "12 AGO 2025", time: "09:00", status: "Concluída"             as const, kind: "neutral" as const },
-  { id: 3, from: "Campinas",        to: "Rio de Janeiro",  date: "28 JUL 2025", time: "16:30", status: "Concluída"             as const, kind: "neutral" as const },
-  { id: 4, from: "Rio de Janeiro",  to: "São Paulo",        date: "15 JUL 2025", time: "08:45", status: "Concluída"             as const, kind: "neutral" as const },
-  { id: 5, from: "São Paulo",       to: "Ribeirão Preto",  date: "02 JUN 2025", time: "11:00", status: "Concluída"             as const, kind: "neutral" as const },
-];
+import { passengerApi, type TicketDetails } from "../../services/api";
+import { getStoredUserId } from "../../services/session";
+import { cityOf, formatTripDateFull, formatTripTime, ticketStatus } from "../../services/format";
 
 export function HistoricoScreen() {
   const DS = useDS();
   const nav = useNavigate();
+
+  const [trips, setTrips] = useState<TicketDetails[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadHistory() {
+      const userId = getStoredUserId();
+      if (!userId) {
+        if (active) {
+          setLoading(false);
+          setLoadError("Sessão não encontrada. Entre novamente para ver seu histórico.");
+        }
+        return;
+      }
+
+      try {
+        const result = await passengerApi.getUserTickets(userId);
+        if (active) setTrips(Array.isArray(result) ? result : []);
+      } catch (err: any) {
+        if (active) setLoadError(err?.message || "Não foi possível carregar o histórico.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    loadHistory();
+    return () => { active = false; };
+  }, []);
+
+  // Anos presentes nas viagens retornadas pelo Oracle
+  const yearSet = new Set<number>();
+  for (const trip of trips) {
+    if (!trip.tripDate) continue;
+    const year = new Date(trip.tripDate).getFullYear();
+    if (!Number.isNaN(year)) yearSet.add(year);
+  }
+  const years: number[] = Array.from(yearSet).sort((a: number, b: number) => b - a);
+
+  const tripCountLabel = `${trips.length} ${trips.length === 1 ? "viagem" : "viagens"}`;
+
   return (
     <Screen bg={DS.bg}>
       <BackHeader title="Histórico de viagens" onBack={() => nav("/home")} />
@@ -21,8 +60,8 @@ export function HistoricoScreen() {
         {/* Summary chips */}
         <div style={{ display: "flex", gap: 8, marginBottom: 16, paddingLeft: 4 }}>
           {[
-            { label: "5 viagens", bg: DS.primaryLight, color: DS.primary },
-            { label: "2025", bg: DS.bg, color: DS.text2 },
+            { label: loading ? "Carregando..." : tripCountLabel, bg: DS.primaryLight, color: DS.primary },
+            ...(years.length > 0 ? [{ label: years.slice(0, 2).join(" · "), bg: DS.bg, color: DS.text2 }] : []),
           ].map(chip => (
             <span key={chip.label} style={{
               background: chip.bg, color: chip.color, borderRadius: 100,
@@ -34,9 +73,30 @@ export function HistoricoScreen() {
           ))}
         </div>
 
-        {TRIPS.map((trip, i) => (
+        {!loading && loadError && (
+          <div style={{
+            background: DS.warningLight, border: `1px solid ${DS.warning}`,
+            borderRadius: 12, padding: "14px 16px", marginBottom: 12,
+          }}>
+            <p style={{ margin: 0, fontSize: 12, color: DS.warning, lineHeight: 1.4 }}>{loadError}</p>
+          </div>
+        )}
+
+        {!loading && !loadError && trips.length === 0 && (
+          <div style={{
+            background: DS.surface, borderRadius: 16, border: `1px solid ${DS.border}`,
+            padding: "36px 20px", textAlign: "center",
+          }}>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: DS.text1 }}>Nenhuma viagem encontrada</p>
+            <p style={{ margin: "6px 0 0", fontSize: 12, color: DS.text2, lineHeight: 1.4 }}>
+              Suas viagens aparecerão aqui após a compra de uma passagem.
+            </p>
+          </div>
+        )}
+
+        {trips.map((trip, i) => (
           <motion.div
-            key={trip.id}
+            key={trip.ticketId}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.06, duration: 0.3 }}
@@ -66,19 +126,26 @@ export function HistoricoScreen() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: DS.text1, letterSpacing: "-0.2px" }}>
-                  {trip.from}
+                  {cityOf(trip.departure)}
                 </p>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
                   <path d="M5 12h14M13 6l6 6-6 6" stroke={DS.text3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: DS.text1, letterSpacing: "-0.2px" }}>
-                  {trip.to}
+                  {cityOf(trip.arrival)}
                 </p>
               </div>
-              <p style={{ margin: 0, fontSize: 12, color: DS.text2 }}>{trip.date} · {trip.time}</p>
+              <p style={{ margin: 0, fontSize: 12, color: DS.text2 }}>
+                {[formatTripDateFull(trip.tripDate), formatTripTime(trip.tripDate)]
+                  .filter(part => part !== "--")
+                  .join(" · ") || "--"}
+              </p>
             </div>
 
-            <StatusBadge label={trip.status} kind={trip.kind} />
+            {(() => {
+              const st = ticketStatus(trip.sold, trip.used);
+              return <StatusBadge label={st.label} kind={st.kind} />;
+            })()}
           </motion.div>
         ))}
 

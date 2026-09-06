@@ -1,6 +1,10 @@
-import { useNavigate } from "react-router";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router";
 import { motion } from "motion/react";
 import { useDS, Screen, BackHeader, BtnPrimary } from "../components/MobileLayout";
+import { luggageApi, passengerApi, type LuggageDetail } from "../../services/api";
+import { getStoredUserId } from "../../services/session";
+import { cityOf, formatTripDateFull, formatTripTime, shortId } from "../../services/format";
 
 function SuitcaseIllustration() {
   const DS = useDS();
@@ -28,22 +32,91 @@ function SuitcaseIllustration() {
   );
 }
 
-const TIMELINE = [
-  { label: "Registrada",          sub: "Bagagem identificada no sistema", done: true  },
-  { label: "Vinculada à viagem",   sub: "SP → RJ · 21 AGO · 14:30",       done: true  },
-  { label: "Em trânsito",          sub: "Aguardando embarque",             done: false },
-  { label: "Retirada",             sub: "Confirme com NFC ao retirar",     done: false },
-];
-
 export function BagemDetalheScreen() {
   const DS = useDS();
   const nav = useNavigate();
+  const location = useLocation();
+  const navState = (location.state || {}) as { baggageId?: string; label?: string };
+
+  const [luggage, setLuggage] = useState<LuggageDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadDetail() {
+      try {
+        // O identificador chega pela navegação a partir da lista de bagagens.
+        // Sem ele, recupera a primeira bagagem da passagem ativa do usuário.
+        let baggageId = navState.baggageId;
+
+        if (!baggageId) {
+          const userId = getStoredUserId();
+          if (!userId) {
+            if (active) setLoadError("Sessão não encontrada. Entre novamente.");
+            return;
+          }
+          const tickets = await passengerApi.getUserTickets(userId);
+          const activeTicket = tickets.find(t => t.used !== 1) || tickets[0] || null;
+          if (!activeTicket?.ticketId) {
+            if (active) setLoadError("Nenhuma passagem ativa encontrada.");
+            return;
+          }
+          const { luggages } = await luggageApi.getByTicket(activeTicket.ticketId);
+          baggageId = luggages?.[0]?.baggageId;
+        }
+
+        if (!baggageId) {
+          if (active) setLoadError("Nenhuma bagagem registrada nesta viagem.");
+          return;
+        }
+
+        const { luggage: detail } = await luggageApi.getById(baggageId);
+        if (active) setLuggage(detail);
+      } catch (err: any) {
+        if (active) setLoadError(err?.message || "Não foi possível carregar a bagagem.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    loadDetail();
+    return () => { active = false; };
+  }, [navState.baggageId]);
+
+  const routeLabel = luggage
+    ? `${cityOf(luggage.departure)} → ${cityOf(luggage.arrival)}`
+    : "--";
+
+  const tripDateLabel = luggage
+    ? [formatTripDateFull(luggage.tripDate), formatTripTime(luggage.tripDate)]
+        .filter(part => part !== "--")
+        .join(" · ") || "--"
+    : "--";
+
+  // Etapas derivadas do estado real: a bagagem existe no Oracle, portanto ainda não foi retirada
+  const TIMELINE = [
+    { label: "Registrada",         sub: "Bagagem identificada no sistema", done: Boolean(luggage) },
+    { label: "Vinculada à viagem", sub: luggage ? `${routeLabel} · ${tripDateLabel}` : "--", done: Boolean(luggage) },
+    { label: "Em trânsito",        sub: "Aguardando embarque",             done: false },
+    { label: "Retirada",           sub: "Pendente de confirmação",         done: false },
+  ];
 
   return (
     <Screen bg={DS.bg}>
-      <BackHeader title="Bagagem 01" onBack={() => nav("/bagagens")} />
+      <BackHeader title={navState.label || "Detalhe da bagagem"} onBack={() => nav("/bagagens")} />
 
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 0" }}>
+        {!loading && loadError && (
+          <div style={{
+            background: DS.warningLight, border: `1px solid ${DS.warning}`,
+            borderRadius: 12, padding: "14px 16px", marginBottom: 16,
+          }}>
+            <p style={{ margin: 0, fontSize: 12, color: DS.warning, lineHeight: 1.4 }}>{loadError}</p>
+          </div>
+        )}
+
         {/* Ilustração */}
         <div style={{
           background: DS.surface, borderRadius: 12,
@@ -75,11 +148,12 @@ export function BagemDetalheScreen() {
           padding: "0 16px", marginBottom: 16,
         }}>
           {[
-            { label: "ID da bagagem",      value: "IN-20481"                  },
-            { label: "Viagem vinculada",   value: "São Paulo → Rio de Janeiro" },
-            { label: "Data da viagem",     value: "21 AGO 2025 · 14:30"       },
-            { label: "Status",             value: "✓ Registrada"              },
-            { label: "Identificação",      value: "NFC ativo"                 },
+            { label: "ID da bagagem",    value: loading ? "..." : shortId(luggage?.baggageId, 16) },
+            { label: "Passageiro",       value: loading ? "..." : (luggage?.passengerName || "--") },
+            { label: "Poltrona",         value: loading ? "..." : (luggage?.seat != null ? String(luggage.seat) : "--") },
+            { label: "Viagem vinculada", value: loading ? "..." : routeLabel },
+            { label: "Data da viagem",   value: loading ? "..." : tripDateLabel },
+            { label: "Status",           value: luggage ? "✓ Registrada" : "--" },
           ].map((row, i, a) => (
             <div key={row.label} style={{
               display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -173,7 +247,8 @@ export function BagemDetalheScreen() {
       <div style={{ padding: "12px 16px 44px", flexShrink: 0 }}>
         <BtnPrimary
           label="Retirar bagagem"
-          onClick={() => nav("/bagagem-retirada")}
+          disabled={!luggage}
+          onClick={() => nav("/bagagem-retirada", { state: { baggageId: luggage?.baggageId } })}
           icon={
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
               <path d="M6 8.5C7.3 6.6 9.5 5.3 12 5.3s4.7 1.3 6 3.2" stroke="white" strokeWidth="2" strokeLinecap="round" />
