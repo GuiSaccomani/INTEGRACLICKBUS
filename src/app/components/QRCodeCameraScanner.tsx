@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { useDS, BtnGhost } from "./MobileLayout";
+import { DEMO_MODE } from "../../services/demoMode";
 
 interface QRCodeCameraScannerProps {
   onScanSuccess: (decodedText: string) => void;
@@ -183,7 +184,8 @@ export function QRCodeCameraScanner({ onScanSuccess, onCancel }: QRCodeCameraSca
         Aponte a câmera para o QR Code apresentado pelo passageiro.
       </p>
 
-      {/* Botão para gravação de vídeo / demonstração rápida */}
+      {/* Atalho de demonstração: apenas em modo demo (ver services/demoMode) */}
+      {DEMO_MODE && (
       <button
         type="button"
         onClick={() => onScanSuccess("INTEGRA-QR-TICKET-DEMO")}
@@ -210,6 +212,7 @@ export function QRCodeCameraScanner({ onScanSuccess, onCancel }: QRCodeCameraSca
         </svg>
         Simular Leitura do QR Code (Gravação do Vídeo)
       </button>
+      )}
 
       {/* Contingência de digitação manual */}
       <div style={{ width: "100%", marginTop: 14 }}>

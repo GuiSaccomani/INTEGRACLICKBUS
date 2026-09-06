@@ -7,6 +7,7 @@ import { passengerApi, ValidatedTicketResult } from "../../services/api";
 import { nfcService } from "../../services/nfc";
 import { QRCodeCameraScanner } from "../components/QRCodeCameraScanner";
 import { playValidationSuccessSound, triggerSuccessHaptic } from "../../services/sound";
+import { DEMO_MODE } from "../../services/demoMode";
 
 type Mode = "select" | "qr" | "nfc";
 type Phase = "idle" | "validating" | "success" | "error";
@@ -49,18 +50,22 @@ export function MotoristaValidacaoScreen() {
       triggerSuccessHaptic();
       triggerFeedback("success", "Passagem aprovada com sucesso.");
     } catch (err: any) {
-      // Suporte a demonstração/gravação em vídeo e contingência offline
+      // Aprovação simulada, restrita ao modo de demonstração: exibe embarque
+      // aprovado sem consulta real e por isso nunca vale em build publicada.
       if (
-        credentialRef.includes("DEMO") ||
-        credentialRef === "INTEGRA-QR-TICKET-DEMO" ||
-        (err as any)?.isOffline
+        DEMO_MODE &&
+        (credentialRef.includes("DEMO") ||
+          credentialRef === "INTEGRA-QR-TICKET-DEMO" ||
+          (err as any)?.isOffline)
       ) {
         setValidatedData({
+          validated: true,
           ticketId: "DEMO-TCK-8812",
           passengerName: "Guilherme Santos",
-          seat: "18",
+          seat: 18,
           departure: "São Paulo (Tietê)",
           arrival: "Rio de Janeiro (Novo Rio)",
+          used: 1,
           luggagesCount: 1,
         });
         setPhase("success");
@@ -205,59 +210,8 @@ export function MotoristaValidacaoScreen() {
         {/* ── MODO QR CODE: LEITURA PELA CÂMERA ── */}
         {phase === "idle" && mode === "qr" && (
           <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+            {/* O scanner já oferece entrada manual da credencial como contingência */}
             <QRCodeCameraScanner onScanSuccess={handleValidateCredential} />
-
-            {/* Validação manual / teste de contingência */}
-            <div style={{ width: "100%", background: DS.surface, borderRadius: 14, border: `1px solid ${DS.border}`, padding: 14 }}>
-              <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, color: DS.text3, letterSpacing: "0.5px" }}>
-                TESTE MANUAL DE CREDENCIAL
-              </p>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  type="text"
-                  placeholder="Ex: UT_7A9B2C4D8E1F3A5B"
-                  id="manual-qr-input"
-                  style={{
-                    flex: 1,
-                    height: 42,
-                    borderRadius: 10,
-                    border: `1.5px solid ${DS.borderMd}`,
-                    padding: "0 12px",
-                    fontSize: 13,
-                    background: DS.bg,
-                    color: DS.text1,
-                    outline: "none",
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      const val = (e.target as HTMLInputElement).value.trim();
-                      if (val) handleValidateCredential(val);
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    const input = document.getElementById("manual-qr-input") as HTMLInputElement;
-                    const val = input?.value.trim();
-                    if (val) handleValidateCredential(val);
-                  }}
-                  style={{
-                    height: 42,
-                    padding: "0 16px",
-                    borderRadius: 10,
-                    background: DS.primary,
-                    border: "none",
-                    color: "white",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    cursor: "pointer",
-                  }}
-                >
-                  Validar
-                </button>
-              </div>
-            </div>
 
             <BtnGhost label="Voltar aos métodos" onClick={handleReset} />
           </div>

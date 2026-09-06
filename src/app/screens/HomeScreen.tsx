@@ -1,36 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import { useDS, Screen, StatusBadge, LogoMark, OperatorHeader, Fonts } from "../components/MobileLayout";
-
-const HISTORY = [
-  { id: 1, from: "São Paulo", to: "Campinas",       date: "12 AGO" },
-  { id: 2, from: "Campinas",  to: "Rio de Janeiro", date: "28 JUL" },
-];
-
-const STEPS = [
-  {
-    num: "1",
-    label: "Validar passagem",
-    desc: "Apresente o QR Code ao motorista ou aproxime por NFC.",
-    action: "/qrcode",
-    actionLabel: "Apresentar QR Code",
-    done: false,
-  },
-  {
-    num: "2",
-    label: "Bagagem registrada automaticamente",
-    desc: "Não é necessário fazer nada.",
-    done: false,
-    auto: true,
-  },
-  {
-    num: "3",
-    label: "Embarcar",
-    desc: "Apresente sua credencial caso solicitado.",
-    done: false,
-  },
-];
+import { passengerApi, type TicketDetails } from "../../services/api";
+import { getStoredFirstName, getStoredUserId } from "../../services/session";
+import { cityOf, formatTripDateShort, formatTripTime, shortId, ticketStatus } from "../../services/format";
 
 export function HomeScreen() {
   const DS = useDS();
@@ -38,8 +12,69 @@ export function HomeScreen() {
   const [expanded, setExpanded] = useState(false);
   const [showSeatMap, setShowSeatMap] = useState(false);
 
-  // Toggle for testing Empty State
-  const HAS_TRIPS = true;
+  const [tickets, setTickets] = useState<TicketDetails[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
+  const firstName = getStoredFirstName();
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadTickets() {
+      const userId = getStoredUserId();
+      if (!userId) {
+        if (active) {
+          setLoading(false);
+          setLoadError("Sessão não encontrada. Entre novamente para ver suas viagens.");
+        }
+        return;
+      }
+
+      try {
+        const result = await passengerApi.getUserTickets(userId);
+        if (active) setTickets(Array.isArray(result) ? result : []);
+      } catch (err: any) {
+        if (active) setLoadError(err?.message || "Não foi possível carregar suas viagens.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    loadTickets();
+    return () => { active = false; };
+  }, []);
+
+  // Próxima viagem: primeira passagem ainda não utilizada; histórico: as já embarcadas
+  const nextTrip = tickets.find(t => t.used !== 1) || null;
+  const pastTrips = tickets.filter(t => t.used === 1);
+  const HAS_TRIPS = Boolean(nextTrip);
+
+  const status = nextTrip ? ticketStatus(nextTrip.sold, nextTrip.used) : null;
+
+  const STEPS = [
+    {
+      num: "1",
+      label: "Validar passagem",
+      desc: "Apresente o QR Code ao motorista para autorizar o embarque.",
+      action: "/qrcode",
+      actionLabel: "Apresentar QR Code",
+      done: nextTrip?.used === 1,
+    },
+    {
+      num: "2",
+      label: "Bagagem registrada automaticamente",
+      desc: "Não é necessário fazer nada.",
+      done: false,
+      auto: true,
+    },
+    {
+      num: "3",
+      label: "Embarcar",
+      desc: "Apresente sua credencial caso solicitado.",
+      done: nextTrip?.used === 1,
+    },
+  ];
 
   return (
     <Screen bg={DS.bg}>
@@ -58,7 +93,9 @@ export function HomeScreen() {
           </div>
           <div>
             <p style={{ margin: 0, fontSize: 11, color: DS.text3, fontWeight: 500 }}>BOM DIA</p>
-            <p style={{ margin: 0, fontSize: 17, fontWeight: 800, color: DS.text1, letterSpacing: "-0.3px" }}>Olá, Guilherme</p>
+            <p style={{ margin: 0, fontSize: 17, fontWeight: 800, color: DS.text1, letterSpacing: "-0.3px" }}>
+              {firstName ? `Olá, ${firstName}` : "Olá"}
+            </p>
           </div>
         </div>
         <button onClick={() => nav("/notificacoes")} style={{
@@ -74,14 +111,27 @@ export function HomeScreen() {
 
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px 0" }}>
         
-        {HAS_TRIPS ? (
+        {loading ? (
+          <div style={{
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+            background: DS.surface, borderRadius: 12, border: `1px solid ${DS.border}`,
+            padding: "40px 20px", marginBottom: 20, gap: 12,
+          }}>
+            <div style={{
+              width: 28, height: 28,
+              border: `3px solid ${DS.primaryMid}`, borderTopColor: DS.primary,
+              borderRadius: "50%", animation: "spin 1s linear infinite",
+            }} />
+            <p style={{ margin: 0, fontSize: 13, color: DS.text2 }}>Carregando suas viagens...</p>
+          </div>
+        ) : HAS_TRIPS && nextTrip ? (
           <>
             {/* Label + badge */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
           <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: DS.text3, letterSpacing: "0.6px", textTransform: "uppercase" }}>
             Próxima viagem
           </p>
-          <StatusBadge label="Pronto para embarque" kind="success" />
+          {status && <StatusBadge label={status.label} kind={status.kind} />}
         </div>
 
         {/* Cartão expandível */}
@@ -101,7 +151,9 @@ export function HomeScreen() {
             <div style={{ display: "flex", alignItems: "center", marginBottom: 14 }}>
               <div style={{ flex: 1 }}>
                 <p style={{ margin: 0, fontSize: 10, color: "rgba(255,255,255,0.5)", fontWeight: 600, letterSpacing: "0.5px" }}>ORIGEM</p>
-                <p style={{ margin: "2px 0 0", fontSize: 18, fontWeight: 800, color: "#fff", letterSpacing: "-0.4px" }}>SÃO PAULO</p>
+                <p style={{ margin: "2px 0 0", fontSize: 18, fontWeight: 800, color: "#fff", letterSpacing: "-0.4px" }}>
+                  {cityOf(nextTrip.departure).toUpperCase()}
+                </p>
               </div>
               <div style={{ padding: "0 12px" }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -110,18 +162,24 @@ export function HomeScreen() {
               </div>
               <div style={{ flex: 1, textAlign: "right" }}>
                 <p style={{ margin: 0, fontSize: 10, color: "rgba(255,255,255,0.5)", fontWeight: 600, letterSpacing: "0.5px" }}>DESTINO</p>
-                <p style={{ margin: "2px 0 0", fontSize: 18, fontWeight: 800, color: "#fff", letterSpacing: "-0.4px" }}>RIO DE JANEIRO</p>
+                <p style={{ margin: "2px 0 0", fontSize: 18, fontWeight: 800, color: "#fff", letterSpacing: "-0.4px" }}>
+                  {cityOf(nextTrip.arrival).toUpperCase()}
+                </p>
               </div>
             </div>
             <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
               <div>
                 <p style={{ margin: 0, fontSize: 10, color: "rgba(255,255,255,0.45)", fontWeight: 600 }}>DATA</p>
-                <p style={{ margin: "2px 0 0", fontSize: 15, fontWeight: 700, color: "#fff" }}>21 AGO</p>
+                <p style={{ margin: "2px 0 0", fontSize: 15, fontWeight: 700, color: "#fff" }}>
+                  {formatTripDateShort(nextTrip.tripDate)}
+                </p>
               </div>
               <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.12)" }} />
               <div>
                 <p style={{ margin: 0, fontSize: 10, color: "rgba(255,255,255,0.45)", fontWeight: 600 }}>HORÁRIO</p>
-                <p style={{ margin: "2px 0 0", fontSize: 15, fontWeight: 700, color: "#fff" }}>14:30</p>
+                <p style={{ margin: "2px 0 0", fontSize: 15, fontWeight: 700, color: "#fff" }}>
+                  {formatTripTime(nextTrip.tripDate)}
+                </p>
               </div>
               <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.12)" }} />
               <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.12)" }} />
@@ -130,7 +188,9 @@ export function HomeScreen() {
                 style={{ cursor: "pointer", background: "rgba(255,255,255,0.1)", padding: "4px 8px", borderRadius: 8 }}
               >
                 <p style={{ margin: 0, fontSize: 10, color: "rgba(255,255,255,0.8)", fontWeight: 600 }}>ASSENTO</p>
-                <p style={{ margin: "2px 0 0", fontSize: 15, fontWeight: 700, color: "#fff", fontFamily: Fonts.heading }}>18</p>
+                <p style={{ margin: "2px 0 0", fontSize: 15, fontWeight: 700, color: "#fff", fontFamily: Fonts.heading }}>
+                  {nextTrip.seat ?? "--"}
+                </p>
               </div>
               <div style={{ flex: 1 }} />
               <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.22 }} style={{ opacity: 0.5 }}>
@@ -152,10 +212,10 @@ export function HomeScreen() {
               >
                 <div style={{ padding: "0 20px 12px", position: "relative" }}>
                   {[
-                    { label: "Passageiro", value: "Guilherme Santos" },
-                    { label: "Empresa",    value: "Viação Cometa" },
-                    { label: "Classe",     value: "Executivo Leito" },
-                    { label: "Plataforma", value: "Terminal Novo Rio · P4" },
+                    { label: "Passageiro", value: nextTrip.passengerName || "--" },
+                    { label: "E-mail",     value: nextTrip.passengerEmail || "--" },
+                    { label: "Bilhete",    value: shortId(nextTrip.ticketId, 12) },
+                    { label: "Situação",   value: status?.label || "--" },
                   ].map((row, i, arr) => (
                     <div key={row.label} style={{
                       display: "flex", justifyContent: "space-between",
@@ -284,8 +344,12 @@ export function HomeScreen() {
                 <path d="M4 19V5a2 2 0 0 1 2-2h13.4a.6.6 0 0 1 .6.6v13.114M6 17h14M6 21h14" stroke={DS.text3} strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </div>
-            <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: DS.text1, fontFamily: Fonts.heading }}>Nenhuma viagem futura</p>
-            <p style={{ margin: "8px 0 20px", fontSize: 13, color: DS.text2, lineHeight: 1.4 }}>Você ainda não tem nenhuma passagem agendada com esta operadora.</p>
+            <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: DS.text1, fontFamily: Fonts.heading }}>
+              {loadError ? "Não foi possível carregar" : "Nenhuma viagem futura"}
+            </p>
+            <p style={{ margin: "8px 0 20px", fontSize: 13, color: DS.text2, lineHeight: 1.4 }}>
+              {loadError || "Você ainda não tem nenhuma passagem agendada com esta operadora."}
+            </p>
             <button style={{
               height: 44, padding: "0 20px", borderRadius: 100, border: "none",
               background: `linear-gradient(135deg, ${DS.primaryDark}, ${DS.primary})`,
@@ -305,23 +369,31 @@ export function HomeScreen() {
           }}>Ver tudo</button>
         </div>
         <div style={{ background: DS.surface, borderRadius: 12, border: `1px solid ${DS.border}`, boxShadow: DS.shadowXs, overflow: "hidden" }}>
-          {HISTORY.map((item, i) => (
-            <div key={item.id} style={{
-              display: "flex", alignItems: "center", gap: 12, padding: "13px 16px",
-              borderBottom: i < HISTORY.length - 1 ? `1px solid ${DS.border}` : "none",
-            }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <path d="M5 12h14M13 6l6 6-6 6" stroke={DS.text3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+          {pastTrips.length === 0 ? (
+            <p style={{ margin: 0, padding: "18px 16px", fontSize: 12, color: DS.text3, textAlign: "center" }}>
+              {loading ? "Carregando..." : "Nenhuma viagem concluída ainda."}
+            </p>
+          ) : (
+            pastTrips.map((item, i) => (
+              <div key={item.ticketId} style={{
+                display: "flex", alignItems: "center", gap: 12, padding: "13px 16px",
+                borderBottom: i < pastTrips.length - 1 ? `1px solid ${DS.border}` : "none",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M5 12h14M13 6l6 6-6 6" stroke={DS.text3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: DS.text1 }}>
+                    {cityOf(item.departure)} → {cityOf(item.arrival)}
+                  </p>
+                  <p style={{ margin: "1px 0 0", fontSize: 11, color: DS.text2 }}>{formatTripDateShort(item.tripDate)}</p>
+                </div>
+                <StatusBadge label="Concluída" kind="success" />
               </div>
-              <div style={{ flex: 1 }}>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: DS.text1 }}>{item.from} → {item.to}</p>
-                <p style={{ margin: "1px 0 0", fontSize: 11, color: DS.text2 }}>{item.date}</p>
-              </div>
-              <StatusBadge label="Concluída" kind="success" />
-            </div>
-          ))}
+            ))
+          )}
         </div>
 
         <div style={{ height: 20 }} />
@@ -354,7 +426,7 @@ export function HomeScreen() {
                   <div style={{ position: "absolute", top: 10, left: 10, right: 10, height: 30, background: "rgba(0,0,0,0.05)", borderRadius: 8 }} />
                   {/* Assento 18 destacado */}
                   <div style={{ position: "absolute", top: 120, right: 15, width: 24, height: 24, background: DS.primary, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>18</span>
+                    <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>{nextTrip?.seat ?? "--"}</span>
                   </div>
                   {/* Outros assentos genéricos */}
                   {[60, 90, 120, 150, 180].map(y => (
