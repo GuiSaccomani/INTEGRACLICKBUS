@@ -5,27 +5,21 @@ import { useDS, Screen, BtnPrimary, BtnGhost, StatusBadge } from "../components/
 import { useA11y } from "../components/AccessibilityContext";
 import { nfcService } from "../../services/nfc";
 
-type Phase = "waiting" | "reading" | "success" | "error";
+type Phase = "waiting" | "reading" | "success" | "error" | "unsupported";
 
 export function RetiradaBagemScreen() {
   const DS = useDS();
   const nav = useNavigate();
   const { triggerFeedback } = useA11y();
 
-  const [phase, setPhase] = useState<Phase>("waiting");
-  const [errorMessage, setErrorMessage] = useState("");
   const nfcSupport = nfcService.checkSupport();
+
+  // Sem Web NFC não há operação possível nesta tela: a limpeza é física
+  const [phase, setPhase] = useState<Phase>(nfcSupport.isSupported ? "waiting" : "unsupported");
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleClearTag = async () => {
     setErrorMessage("");
-
-    if (!nfcSupport.isSupported) {
-      // Se não houver suporte Web NFC, conclui o fluxo lógico e avisa
-      setPhase("success");
-      triggerFeedback("success", "Tag liberada logicamente.");
-      return;
-    }
-
     setPhase("reading");
     triggerFeedback("neutral", "Aproxime o celular da tag para limpar");
 
@@ -87,8 +81,8 @@ export function RetiradaBagemScreen() {
               width: 100,
               height: 100,
               borderRadius: "50%",
-              background: phase === "success" ? DS.success : phase === "error" ? DS.error : DS.primaryLight,
-              border: `2px solid ${phase === "success" ? DS.success : phase === "error" ? DS.error : DS.primary}`,
+              background: phase === "success" ? DS.success : phase === "error" ? DS.error : phase === "unsupported" ? DS.warningLight : DS.primaryLight,
+              border: `2px solid ${phase === "success" ? DS.success : phase === "error" ? DS.error : phase === "unsupported" ? DS.warning : DS.primary}`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -115,7 +109,9 @@ export function RetiradaBagemScreen() {
         {/* Texto */}
         <div style={{ textAlign: "center", marginBottom: 28, width: "100%" }}>
           <p style={{ margin: 0, fontSize: 20, fontWeight: 800, color: DS.text1, letterSpacing: "-0.4px" }}>
-            {phase === "waiting"
+            {phase === "unsupported"
+              ? "Limpeza Indisponível"
+              : phase === "waiting"
               ? "Limpar Tag NFC"
               : phase === "reading"
               ? "Aproxime a Tag Física..."
@@ -124,7 +120,9 @@ export function RetiradaBagemScreen() {
               : "Falha na Limpeza"}
           </p>
           <p style={{ margin: "8px 0 0", fontSize: 14, color: DS.text2, lineHeight: 1.5 }}>
-            {phase === "waiting"
+            {phase === "unsupported"
+              ? `${nfcSupport.message} A baixa da bagagem é confirmada pelo operador no desembarque.`
+              : phase === "waiting"
               ? "Ao desocupar a mala, limpe os dados da tag NFC física para que possa ser utilizada em viagens futuras."
               : phase === "reading"
               ? "Mantenha o celular encostado na tag da mala para sobrescrever o NDEF."
@@ -136,10 +134,11 @@ export function RetiradaBagemScreen() {
 
         {/* Botão de ação */}
         {phase === "waiting" && (
-          <BtnPrimary
-            label={nfcSupport.isSupported ? "Limpar Tag NFC Física" : "Confirmar Liberação"}
-            onClick={handleClearTag}
-          />
+          <BtnPrimary label="Limpar Tag NFC Física" onClick={handleClearTag} />
+        )}
+
+        {phase === "unsupported" && (
+          <BtnGhost label="Voltar para Minhas Bagagens" onClick={() => nav("/bagagens")} />
         )}
 
         {phase === "error" && (
