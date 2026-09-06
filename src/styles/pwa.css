@@ -55,33 +55,38 @@ iframe[src*="netlify"],
    ACESSIBILIDADE REAL FUNCIONAL EM TODO O SISTEMA
 ════════════════════════════════════════════════ */
 
-/* Escala de texto e interface para TODO O SISTEMA (todas as telas) */
+/* Escala de texto confortável, equilibrada e legível sem distorcer o layout */
+html.a11y-text-large {
+  font-size: 16px;
+}
+
+html.a11y-text-xl {
+  font-size: 17px;
+}
+
+/* Proteção contra overflow e quebra de layout mobile */
 html.a11y-text-large,
-html.a11y-text-large #root,
-html.a11y-text-large .screen-container {
-  font-size: 18px !important;
-  zoom: 1.12;
+html.a11y-text-xl {
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
 }
 
-html.a11y-text-xl,
-html.a11y-text-xl #root,
-html.a11y-text-xl .screen-container {
-  font-size: 20px !important;
-  zoom: 1.25;
+html.a11y-text-large .screen-container,
+html.a11y-text-xl .screen-container,
+html.a11y-text-large .screen-scroll-body,
+html.a11y-text-xl .screen-scroll-body {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
 }
 
-/* Ampliação tipográfica universal para textos do app */
+/* Aumento suave e controlado dos textos em todas as telas */
 html.a11y-text-large p,
 html.a11y-text-large span,
 html.a11y-text-large button,
 html.a11y-text-large a,
 html.a11y-text-large label,
-html.a11y-text-large h1,
-html.a11y-text-large h2,
-html.a11y-text-large h3,
-html.a11y-text-large h4,
 html.a11y-text-large input {
-  font-size: 1.12em !important;
+  font-size: 1.06em;
 }
 
 html.a11y-text-xl p,
@@ -89,12 +94,8 @@ html.a11y-text-xl span,
 html.a11y-text-xl button,
 html.a11y-text-xl a,
 html.a11y-text-xl label,
-html.a11y-text-xl h1,
-html.a11y-text-xl h2,
-html.a11y-text-xl h3,
-html.a11y-text-xl h4,
 html.a11y-text-xl input {
-  font-size: 1.26em !important;
+  font-size: 1.12em;
 }
 
 /* Alto contraste reforçado */

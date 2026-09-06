@@ -17,70 +17,122 @@ export function QRCodeCameraScanner({ onScanSuccess, onCancel }: QRCodeCameraSca
   const [manualInput, setManualInput] = useState("");
   const [showManualInput, setShowManualInput] = useState(false);
 
+  const [isStarting, setIsStarting] = useState(false);
+
   // Mantém o callback mais recente sem reiniciar a câmera a cada render do componente pai
   const onScanSuccessRef = useRef(onScanSuccess);
   useEffect(() => {
     onScanSuccessRef.current = onScanSuccess;
   }, [onScanSuccess]);
 
-  useEffect(() => {
-    let isMounted = true;
+  const startScanner = async () => {
+    try {
+      setIsStarting(true);
+      setErrorMessage(null);
 
-    async function startScanner() {
+      // Se já houver um scanner ativo, finaliza antes de recriar
+      if (scannerRef.current) {
+        try {
+          if (scannerRef.current.isScanning) {
+            await scannerRef.current.stop();
+          }
+        } catch (_) {}
+      }
+
+      const scanner = new Html5Qrcode(readerElementId);
+      scannerRef.current = scanner;
+
+      const scanCallback = (decodedText: string) => {
+        scanner
+          .stop()
+          .then(() => {
+            setCameraActive(false);
+            onScanSuccessRef.current(decodedText);
+          })
+          .catch(() => {
+            onScanSuccessRef.current(decodedText);
+          });
+      };
+
+      const scanConfig = {
+        fps: 10,
+        qrbox: { width: 240, height: 240 },
+        aspectRatio: 1.0,
+      };
+
+      // No Safari / iPhone, configurar MutationObserver para injetar atributos playsinline imediatamente
+      const container = document.getElementById(readerElementId);
+      let observer: MutationObserver | null = null;
+      if (container) {
+        observer = new MutationObserver(() => {
+          const video = container.querySelector("video");
+          if (video) {
+            video.setAttribute("playsinline", "true");
+            video.setAttribute("webkit-playsinline", "true");
+            video.setAttribute("muted", "true");
+            video.muted = true;
+            video.autoplay = true;
+          }
+        });
+        observer.observe(container, { childList: true, subtree: true });
+      }
+
+      // No iOS Safari, tenta câmera traseira via facingMode: "environment"
       try {
-        setErrorMessage(null);
-        const scanner = new Html5Qrcode(readerElementId);
-        scannerRef.current = scanner;
-
-        // Tenta usar câmera traseira ('environment')
-        await scanner.start(
-          { facingMode: "environment" },
-          {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
-            aspectRatio: 1.0,
-          },
-          (decodedText) => {
-            if (isMounted) {
-              // Quando detectar um QR code com sucesso
-              scanner
-                .stop()
-                .then(() => {
-                  setCameraActive(false);
-                  onScanSuccessRef.current(decodedText);
-                })
-                .catch(() => {
-                  onScanSuccessRef.current(decodedText);
-                });
-            }
-          },
-          () => {
-            // Callback de leitura frame a frame (ignora falhas normais entre frames)
-          }
-        );
-
-        if (isMounted) {
-          setCameraActive(true);
-        }
-      } catch (err: any) {
-        console.warn("⚠️ Erro ao iniciar câmera:", err);
-        if (isMounted) {
-          setCameraActive(false);
-          if (err?.name === "NotAllowedError" || String(err).includes("Permission")) {
-            setErrorMessage("Acesso à câmera não autorizado. Permita o uso da câmera no navegador para escanear o QR Code.");
-          } else if (err?.name === "NotFoundError" || String(err).includes("device")) {
-            setErrorMessage("Nenhuma câmera encontrada neste dispositivo. Utilize a entrada manual da credencial.");
-          } else {
-            setErrorMessage("Não foi possível iniciar a câmera. Verifique as permissões ou digite a credencial manualmente.");
-          }
+        await scanner.start({ facingMode: "environment" }, scanConfig, scanCallback, () => {});
+      } catch (envErr) {
+        console.warn("Primeira tentativa de câmera traseira falhou, tentando fallback:", envErr);
+        try {
+          await scanner.start({ facingMode: "user" }, scanConfig, scanCallback, () => {});
+        } catch (userErr) {
+          await scanner.start({}, scanConfig, scanCallback, () => {});
         }
       }
-    }
 
-    startScanner();
+      if (observer) {
+        observer.disconnect();
+      }
+
+      // Garante que o elemento de vídeo no Safari móvel continue executando inline
+      const video = document.querySelector(`#${readerElementId} video`) as HTMLVideoElement | null;
+      if (video) {
+        video.setAttribute("playsinline", "true");
+        video.setAttribute("webkit-playsinline", "true");
+        video.setAttribute("muted", "true");
+        video.muted = true;
+        video.autoplay = true;
+        video.play().catch(() => {});
+      }
+
+      setCameraActive(true);
+    } catch (err: any) {
+      console.warn("⚠️ Erro ao iniciar câmera:", err);
+      setCameraActive(false);
+      const errStr = String(err || "");
+      const errName = err?.name || "";
+      if (errName === "NotAllowedError" || errStr.includes("Permission") || errStr.includes("NotAllowed")) {
+        setErrorMessage("Acesso à câmera não permitido. No iPhone, vá em Ajustes > Safari > Câmera e marque 'Permitir'.");
+      } else if (errName === "NotFoundError" || errStr.includes("device") || errStr.includes("NotFound")) {
+        setErrorMessage("Nenhuma câmera encontrada. Utilize a entrada manual abaixo.");
+      } else {
+        setErrorMessage("Não foi possível inicializar a câmera. Toque abaixo para tentar novamente.");
+      }
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    const timer = setTimeout(() => {
+      if (isMounted) {
+        startScanner();
+      }
+    }, 100);
 
     return () => {
       isMounted = false;
+      clearTimeout(timer);
       if (scannerRef.current) {
         try {
           if (scannerRef.current.isScanning) {
@@ -175,6 +227,27 @@ export function QRCodeCameraScanner({ onScanSuccess, onCancel }: QRCodeCameraSca
             <p style={{ margin: 0, fontSize: 13, color: DS.text1, lineHeight: 1.4 }}>
               {errorMessage}
             </p>
+            <button
+              type="button"
+              onClick={startScanner}
+              disabled={isStarting}
+              style={{
+                marginTop: 6,
+                padding: "8px 18px",
+                borderRadius: 10,
+                background: DS.primary,
+                color: "#FFF",
+                border: "none",
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              📷 {isStarting ? "Iniciando..." : "Tentar Novamente"}
+            </button>
           </div>
         )}
       </div>

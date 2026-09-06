@@ -163,7 +163,6 @@ export function Screen({ children, bg, style }: {
 }) {
   const ds = useDS();
   const { textSize } = useA11y();
-  const a11yZoom = textSize === "xl" ? 1.25 : textSize === "large" ? 1.12 : 1;
   return (
     <div
       className={`screen-container a11y-text-${textSize}`}
@@ -173,7 +172,6 @@ export function Screen({ children, bg, style }: {
         display: "flex", flexDirection: "column",
         fontFamily: Fonts.body,
         overflow: "hidden",
-        zoom: a11yZoom,
         ...style,
       }}
     >
@@ -184,8 +182,6 @@ export function Screen({ children, bg, style }: {
 }
 
 export function ScrollBody({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  const { textSize } = useA11y();
-  const zoomScale = textSize === "large" ? 1.18 : textSize === "xl" ? 1.36 : 1.0;
   return (
     <div
       className="screen-scroll-body"
@@ -194,7 +190,6 @@ export function ScrollBody({ children, style }: { children: React.ReactNode; sty
         overflowY: "auto",
         overflowX: "hidden",
         WebkitOverflowScrolling: "touch" as const,
-        zoom: zoomScale,
         ...style,
       }}
     >
