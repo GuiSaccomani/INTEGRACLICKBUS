@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import { useDS, Screen, BtnPrimary, BtnGhost, BackHeader, Fonts } from "../components/MobileLayout";
@@ -37,7 +37,7 @@ export function MotoristaValidacaoScreen() {
   }, []);
 
   // Executa validação real contra o backend Node/Express e banco Oracle
-  const handleValidateCredential = async (credentialRef: string) => {
+  const handleValidateCredential = useCallback(async (credentialRef: string) => {
     setPhase("validating");
     setErrorMessage("");
 
@@ -74,7 +74,7 @@ export function MotoristaValidacaoScreen() {
       setPhase("error");
       triggerFeedback("error", message);
     }
-  };
+  }, [driverId, triggerFeedback]);
 
   // Ativação do leitor NFC físico
   const handleStartNfc = async () => {
@@ -202,37 +202,10 @@ export function MotoristaValidacaoScreen() {
           </div>
         )}
 
-        {/* ── MODO QR CODE: RESERVADO PARA O MÓDULO DA EQUIPE ── */}
+        {/* ── MODO QR CODE: LEITURA PELA CÂMERA ── */}
         {phase === "idle" && mode === "qr" && (
           <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-            <div
-              style={{
-                width: "100%",
-                height: 240,
-                borderRadius: 16,
-                background: DS.bg,
-                border: `2px dashed ${DS.primaryMid}`,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 20,
-                textAlign: "center",
-              }}
-            >
-              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" style={{ marginBottom: 10 }}>
-                <rect x="3" y="3" width="7" height="7" rx="1.5" stroke={DS.primary} strokeWidth="2" />
-                <rect x="14" y="3" width="7" height="7" rx="1.5" stroke={DS.primary} strokeWidth="2" />
-                <rect x="3" y="14" width="7" height="7" rx="1.5" stroke={DS.primary} strokeWidth="2" />
-                <path d="M14 14h2v2h-2zM19 14h2v2h-2zM14 19h2v2h-2zM19 19h2v2h-2z" fill={DS.primary} />
-              </svg>
-              <p style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 700, color: DS.text1 }}>
-                Ponto de Integração: QR Code
-              </p>
-              <p style={{ margin: 0, fontSize: 12, color: DS.text3, lineHeight: 1.4 }}>
-                Área reservada para o componente de leitura da equipe. O callback <code>handleValidateCredential(hash)</code> está pronto.
-              </p>
-            </div>
+            <QRCodeCameraScanner onScanSuccess={handleValidateCredential} />
 
             {/* Validação manual / teste de contingência */}
             <div style={{ width: "100%", background: DS.surface, borderRadius: 14, border: `1px solid ${DS.border}`, padding: 14 }}>

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
-import { useDS, BtnPrimary, BtnGhost } from "./MobileLayout";
+import { useDS, BtnGhost } from "./MobileLayout";
 
 interface QRCodeCameraScannerProps {
   onScanSuccess: (decodedText: string) => void;
@@ -15,6 +15,12 @@ export function QRCodeCameraScanner({ onScanSuccess, onCancel }: QRCodeCameraSca
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [manualInput, setManualInput] = useState("");
   const [showManualInput, setShowManualInput] = useState(false);
+
+  // Mantém o callback mais recente sem reiniciar a câmera a cada render do componente pai
+  const onScanSuccessRef = useRef(onScanSuccess);
+  useEffect(() => {
+    onScanSuccessRef.current = onScanSuccess;
+  }, [onScanSuccess]);
 
   useEffect(() => {
     let isMounted = true;
@@ -40,10 +46,10 @@ export function QRCodeCameraScanner({ onScanSuccess, onCancel }: QRCodeCameraSca
                 .stop()
                 .then(() => {
                   setCameraActive(false);
-                  onScanSuccess(decodedText);
+                  onScanSuccessRef.current(decodedText);
                 })
                 .catch(() => {
-                  onScanSuccess(decodedText);
+                  onScanSuccessRef.current(decodedText);
                 });
             }
           },
@@ -82,7 +88,7 @@ export function QRCodeCameraScanner({ onScanSuccess, onCancel }: QRCodeCameraSca
         } catch (_) {}
       }
     };
-  }, [onScanSuccess]);
+  }, []);
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -266,7 +272,9 @@ export function QRCodeCameraScanner({ onScanSuccess, onCancel }: QRCodeCameraSca
         )}
 
         {onCancel && (
-          <BtnGhost label="Cancelar escaneamento" onClick={onCancel} style={{ marginTop: 6 }} />
+          <div style={{ marginTop: 6 }}>
+            <BtnGhost label="Cancelar escaneamento" onClick={onCancel} />
+          </div>
         )}
       </div>
     </div>
