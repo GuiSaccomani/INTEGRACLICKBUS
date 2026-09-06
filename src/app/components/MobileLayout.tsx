@@ -234,9 +234,13 @@ export function BtnPrimary({ label, onClick, disabled, icon, fitContent }: {
   const ds = useDS();
   return (
     <button onClick={onClick} disabled={disabled} style={{
-      width: fitContent ? "fit-content" : "100%", 
-      padding: fitContent ? "0 24px" : "0",
-      height: 64, borderRadius: 100, border: "none",
+      width: fitContent ? "fit-content" : "100%",
+      maxWidth: "100%",
+      boxSizing: "border-box",
+      padding: fitContent ? "12px 24px" : "14px 20px",
+      minHeight: 56,
+      height: "auto",
+      borderRadius: 100, border: "none",
       background: disabled ? ds.primaryMid : `linear-gradient(135deg, ${ds.primaryDark}, ${ds.primary})`,
       color: "#fff", fontSize: 17, fontWeight: 600, letterSpacing: "-0.2px",
       cursor: disabled ? "not-allowed" : "pointer",
@@ -258,13 +262,18 @@ export function BtnGhost({ label, onClick, icon, fitContent }: { label: string; 
   return (
     <button onClick={onClick} style={{
       width: fitContent ? "fit-content" : "100%",
-      padding: fitContent ? "0 24px" : "0", 
-      height: 56, borderRadius: 100,
+      maxWidth: "100%",
+      boxSizing: "border-box",
+      minHeight: 50,
+      height: "auto",
+      padding: "12px 20px",
+      borderRadius: 100,
       border: `1.5px solid ${ds.borderMd}`,
       background: "transparent", color: ds.text1,
-      fontSize: 16, fontWeight: 600,
+      fontSize: 15, fontWeight: 600,
       cursor: "pointer", fontFamily: Fonts.body,
       display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+      transition: "background 0.15s",
     }}>
       {icon}{label}
     </button>
