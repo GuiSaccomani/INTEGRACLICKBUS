@@ -7,6 +7,7 @@ import { passengerApi, ValidatedTicketResult } from "../../services/api";
 import { nfcService } from "../../services/nfc";
 import { QRCodeCameraScanner } from "../components/QRCodeCameraScanner";
 import { playValidationSuccessSound, triggerSuccessHaptic } from "../../services/sound";
+import { DEMO_MODE } from "../../services/demoMode";
 
 type Mode = "select" | "qr" | "nfc";
 type Phase = "idle" | "validating" | "success" | "error";
@@ -49,11 +50,13 @@ export function MotoristaValidacaoScreen() {
       triggerSuccessHaptic();
       triggerFeedback("success", "Passagem aprovada com sucesso.");
     } catch (err: any) {
-      // Suporte a demonstração/gravação em vídeo e contingência offline
+      // Aprovação simulada, restrita ao modo de demonstração: exibe embarque
+      // aprovado sem consulta real e por isso nunca vale em build publicada.
       if (
-        credentialRef.includes("DEMO") ||
-        credentialRef === "INTEGRA-QR-TICKET-DEMO" ||
-        (err as any)?.isOffline
+        DEMO_MODE &&
+        (credentialRef.includes("DEMO") ||
+          credentialRef === "INTEGRA-QR-TICKET-DEMO" ||
+          (err as any)?.isOffline)
       ) {
         setValidatedData({
           validated: true,
