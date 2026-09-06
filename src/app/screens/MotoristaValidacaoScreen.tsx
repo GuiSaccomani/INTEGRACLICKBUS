@@ -56,11 +56,13 @@ export function MotoristaValidacaoScreen() {
         (err as any)?.isOffline
       ) {
         setValidatedData({
+          validated: true,
           ticketId: "DEMO-TCK-8812",
           passengerName: "Guilherme Santos",
-          seat: "18",
+          seat: 18,
           departure: "São Paulo (Tietê)",
           arrival: "Rio de Janeiro (Novo Rio)",
+          used: 1,
           luggagesCount: 1,
         });
         setPhase("success");
