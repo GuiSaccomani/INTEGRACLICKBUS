@@ -10,18 +10,21 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import com.integra.data.local.SessionManager
 import com.integra.presentation.passenger.StatusBadge
 import com.integra.presentation.viewmodel.DriverHomeViewModel
 import com.integra.presentation.viewmodel.DriverHomeUiState
@@ -79,7 +82,7 @@ fun BottomNavDriver(
 
 @Composable
 fun DriverHomeScreen(
-    viewModel: DriverHomeViewModel = viewModel(),
+    viewModel: DriverHomeViewModel? = null,
     onValidatePassenger: () -> Unit,
     onAddBaggage: () -> Unit,
     onClearTag: () -> Unit,
@@ -90,9 +93,17 @@ fun DriverHomeScreen(
     onConta: () -> Unit = {},
     onPassengerMode: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val actualViewModel = viewModel ?: remember {
+        DriverHomeViewModel(sessionManager = SessionManager.getInstance(context))
+    }
     val colors = LocalIntegraColors.current
     val scrollState = rememberScrollState()
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by actualViewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        actualViewModel.loadTripSummary()
+    }
 
     Scaffold(
         bottomBar = {

@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import com.integra.data.local.SessionManager
 import com.integra.presentation.viewmodel.DriverPassengerListUiState
 import com.integra.presentation.viewmodel.DriverPassengerListViewModel
 import com.integra.ui.theme.*
@@ -27,7 +29,10 @@ import com.integra.ui.theme.*
 fun DriverPassengerListScreen(
     onNavigateBack: () -> Unit
 ) {
-    val viewModel = remember { DriverPassengerListViewModel() }
+    val context = LocalContext.current
+    val viewModel = remember { 
+        DriverPassengerListViewModel(sessionManager = SessionManager.getInstance(context)) 
+    }
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) {

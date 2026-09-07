@@ -19,6 +19,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import com.integra.data.local.SessionManager
 import com.integra.data.model.TripPassengerDto
 import com.integra.data.repository.DriverRepository
 import com.integra.presentation.common.ErrorStateView
@@ -40,13 +42,25 @@ fun DriverBaggageListScreen(
     driverRepository: DriverRepository = remember { DriverRepository() }
 ) {
     val colors = LocalIntegraColors.current
+    val context = LocalContext.current
+    val sessionManager = remember { SessionManager.getInstance(context) }
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<UiState<List<DriverBaggageUiModel>>>(UiState.Loading) }
 
     val loadBaggages: () -> Unit = {
         state = UiState.Loading
         scope.launch {
-            val result = driverRepository.getTripPassengers("TRIP-SP-RJ-001")
+            val driverId = sessionManager.getCachedUserId() ?: "00000000000000000000000000000001"
+            val tripsResult = driverRepository.getTrips(driverId)
+            val trips = tripsResult.getOrNull()
+            val activeTripId = trips?.firstOrNull()?.tripId
+
+            if (activeTripId.isNullOrBlank()) {
+                state = UiState.Success(emptyList())
+                return@launch
+            }
+
+            val result = driverRepository.getTripPassengers(activeTripId)
             result.onSuccess { passengers ->
                 val list = mutableListOf<DriverBaggageUiModel>()
                 passengers.forEach { p ->
@@ -60,12 +74,6 @@ fun DriverBaggageListScreen(
                             )
                         )
                     }
-                }
-                // Se a lista estiver vazia por ser mock da rota, adiciona os passageiros com bagagens
-                if (list.isEmpty()) {
-                    list.add(DriverBaggageUiModel("TAG-7654", "Marcos Oliveira", 12, true))
-                    list.add(DriverBaggageUiModel("TAG-3421", "João Silva", 18, true))
-                    list.add(DriverBaggageUiModel("TAG-8822", "Ana Costa", 14, false))
                 }
                 state = UiState.Success(list)
             }.onFailure { err ->

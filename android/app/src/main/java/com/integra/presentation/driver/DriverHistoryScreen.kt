@@ -15,10 +15,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.integra.data.model.TripPassengerDto
+import com.integra.data.local.SessionManager
+import com.integra.data.model.TripDto
 import com.integra.data.repository.DriverRepository
 import com.integra.presentation.common.ErrorStateView
 import com.integra.presentation.common.LoadingStateView
@@ -26,44 +28,26 @@ import com.integra.presentation.common.UiState
 import com.integra.ui.theme.LocalIntegraColors
 import kotlinx.coroutines.launch
 
-data class DriverHistoryData(
-    val totalPassengers: Int,
-    val boardedPassengers: Int,
-    val pendingPassengers: Int,
-    val recentBoardings: List<TripPassengerDto>
-)
-
 @Composable
 fun DriverHistoryScreen(
     onNavigateBack: () -> Unit,
     driverRepository: DriverRepository = remember { DriverRepository() }
 ) {
     val colors = LocalIntegraColors.current
+    val context = LocalContext.current
+    val sessionManager = remember { SessionManager.getInstance(context) }
     val scope = rememberCoroutineScope()
-    var state by remember { mutableStateOf<UiState<DriverHistoryData>>(UiState.Loading) }
+    var state by remember { mutableStateOf<UiState<List<TripDto>>>(UiState.Loading) }
 
     val loadHistory: () -> Unit = {
         state = UiState.Loading
         scope.launch {
-            val result = driverRepository.getTripPassengers("TRIP-SP-RJ-001")
-            result.onSuccess { passengers ->
-                val total = passengers.size.coerceAtLeast(42)
-                val boarded = passengers.filter { it.isBoarded }
-                val boardedCount = if (boarded.isNotEmpty()) boarded.size else 38
-                val pendingCount = total - boardedCount
-
-                val list = if (boarded.isNotEmpty()) boarded else passengers.take(5)
-
-                state = UiState.Success(
-                    DriverHistoryData(
-                        totalPassengers = total,
-                        boardedPassengers = boardedCount,
-                        pendingPassengers = pendingCount,
-                        recentBoardings = list
-                    )
-                )
+            val driverId = sessionManager.getCachedUserId() ?: "00000000000000000000000000000001"
+            val result = driverRepository.getTrips(driverId)
+            result.onSuccess { trips ->
+                state = UiState.Success(trips)
             }.onFailure { err ->
-                state = UiState.Error(err.message ?: "Não foi possível carregar o histórico de embarques.")
+                state = UiState.Error(err.message ?: "Não foi possível carregar o histórico de viagens.")
             }
         }
     }
@@ -97,14 +81,14 @@ fun DriverHistoryScreen(
                 Text("<", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = colors.text1)
             }
             Spacer(modifier = Modifier.width(16.dp))
-            Text("Resumo da Viagem", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = colors.text1)
+            Text("Histórico de Viagens", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = colors.text1)
         }
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(colors.border))
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when (val currentState = state) {
                 is UiState.Loading -> {
-                    LoadingStateView(message = "Carregando resumo e histórico de embarque...")
+                    LoadingStateView(message = "Carregando histórico de viagens...")
                 }
                 is UiState.Error -> {
                     ErrorStateView(
@@ -113,7 +97,7 @@ fun DriverHistoryScreen(
                     )
                 }
                 is UiState.Success -> {
-                    val data = currentState.data
+                    val trips = currentState.data
 
                     LazyColumn(
                         modifier = Modifier
@@ -136,20 +120,21 @@ fun DriverHistoryScreen(
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text("TOTAL", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = colors.text3)
-                                    Text("${data.totalPassengers}", fontSize = 28.sp, fontWeight = FontWeight.Black, color = colors.text1)
+                                    Text("${trips.size}", fontSize = 28.sp, fontWeight = FontWeight.Black, color = colors.text1)
                                 }
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("EMBARCADOS", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = colors.text3)
-                                    Text("${data.boardedPassengers}", fontSize = 28.sp, fontWeight = FontWeight.Black, color = colors.success)
+                                    Text("OPERADAS", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = colors.text3)
+                                    Text("${trips.size}", fontSize = 28.sp, fontWeight = FontWeight.Black, color = colors.success)
                                 }
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("FALTAM", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = colors.text3)
-                                    Text("${data.pendingPassengers}", fontSize = 28.sp, fontWeight = FontWeight.Black, color = colors.error)
+                                    Text("PASSAGEIROS", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = colors.text3)
+                                    val totalTickets = trips.sumOf { it.ticketsCount }
+                                    Text("$totalTickets", fontSize = 28.sp, fontWeight = FontWeight.Black, color = colors.primary)
                                 }
                             }
 
                             Text(
-                                text = "Últimos Embarques Validados",
+                                text = "Viagens Operadas Recentemente",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = colors.text1,
@@ -157,35 +142,76 @@ fun DriverHistoryScreen(
                             )
                         }
 
-                        items(data.recentBoardings) { item ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 10.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(colors.surface)
-                                    .border(1.dp, colors.border, RoundedCornerShape(12.dp))
-                                    .padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
+                        if (trips.isEmpty()) {
+                            item {
                                 Box(
                                     modifier = Modifier
-                                        .size(10.dp)
-                                        .clip(CircleShape)
-                                        .background(if (item.isBoarded) colors.success else colors.primary)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(item.passengerName, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.text1)
-                                    Text("Poltrona ${item.seat} · ${item.baggageCount} bagagem(ns)", fontSize = 12.sp, color = colors.text2)
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(100.dp))
-                                        .background(colors.successLight)
-                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(colors.surface)
+                                        .border(1.dp, colors.border, RoundedCornerShape(16.dp))
+                                        .padding(32.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Text("Validado", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = colors.success)
+                                    Text(
+                                        text = "Nenhuma viagem operada por este motorista.",
+                                        fontSize = 14.sp,
+                                        color = colors.text3,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        } else {
+                            items(trips) { trip ->
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 12.dp)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(colors.surface)
+                                        .border(1.dp, colors.border, RoundedCornerShape(14.dp))
+                                        .padding(16.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "${trip.departure} → ${trip.arrival}",
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = colors.text1
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(100.dp))
+                                                .background(colors.successLight)
+                                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                                        ) {
+                                            Text("Concluída", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = colors.success)
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Data: ${trip.tripDate}",
+                                            fontSize = 12.sp,
+                                            color = colors.text2
+                                        )
+                                        Text(
+                                            text = "${trip.ticketsCount} passageiros · ${trip.occupation}",
+                                            fontSize = 12.sp,
+                                            color = colors.text3,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -196,3 +222,4 @@ fun DriverHistoryScreen(
         }
     }
 }
+
