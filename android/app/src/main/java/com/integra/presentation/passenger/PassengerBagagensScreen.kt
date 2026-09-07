@@ -21,13 +21,20 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.integra.data.local.SessionManager
+import com.integra.presentation.common.ErrorStateView
+import com.integra.presentation.common.LoadingStateView
+import com.integra.presentation.common.UiState
 import com.integra.presentation.components.PassengerBottomNav
+import com.integra.presentation.viewmodel.PassengerLuggageViewModel
 import com.integra.ui.theme.LocalIntegraColors
 
 @Composable
@@ -108,10 +115,22 @@ fun PassengerBagagensScreen(
     onNavigateToViagens: () -> Unit,
     onNavigateToConta: () -> Unit,
     onNavigateToRegistrarBagagem: () -> Unit = {},
-    onNavigateToDetalhe: (String) -> Unit = {}
+    onNavigateToDetalhe: (String) -> Unit = {},
+    viewModel: PassengerLuggageViewModel = viewModel()
 ) {
     val colors = LocalIntegraColors.current
+    val context = LocalContext.current
     val scrollState = rememberScrollState()
+
+    val sessionManager = remember { SessionManager.getInstance(context) }
+    val activeTicket = remember { sessionManager.getCachedActiveTicket() }
+    val ticketId = activeTicket?.ticketId ?: "TKT-SP-RJ-1001"
+
+    val state by viewModel.luggagesState.collectAsState()
+
+    LaunchedEffect(ticketId) {
+        viewModel.loadLuggages(ticketId)
+    }
 
     // Animação de pulso para o status ativo do NFC
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
@@ -130,7 +149,7 @@ fun PassengerBagagensScreen(
             .fillMaxSize()
             .background(colors.bg)
     ) {
-        // Header alinhado com o padrão ÍNTEGRA
+        // Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -179,220 +198,264 @@ fun PassengerBagagensScreen(
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(colors.border))
 
         // Content
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(scrollState)
-                .padding(16.dp)
-        ) {
-            // Banner de informação vinculado
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.primaryLight)
-                    .border(1.5.dp, colors.primaryMid, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("⚡", fontSize = 16.sp, modifier = Modifier.padding(end = 10.dp))
-                Column {
-                    Text(
-                        text = "Suas bagagens",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = colors.primary
-                    )
-                    Text(
-                        text = "Vinculadas automaticamente à sua viagem.",
-                        fontSize = 12.sp,
-                        color = colors.text2
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            when (val currentState = state) {
+                is UiState.Loading -> {
+                    LoadingStateView(message = "Carregando suas bagagens...")
+                }
+                is UiState.Error -> {
+                    ErrorStateView(
+                        message = currentState.message,
+                        onRetry = { viewModel.loadLuggages(ticketId) }
                     )
                 }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Card Retangular da Bagagem 01 (Design Reto e Polido)
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(4.dp, RoundedCornerShape(12.dp), spotColor = Color.Black.copy(alpha = 0.06f))
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.surface)
-                    .border(1.dp, colors.border, RoundedCornerShape(12.dp))
-                    .clickable { onNavigateToDetalhe("IN-20481") }
-                    .padding(16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        SuitcaseVector(
-                            primaryColor = colors.primary,
-                            lightColor = colors.primaryLight
-                        )
-                        Spacer(modifier = Modifier.width(14.dp))
-                        Column {
-                            Text(
-                                text = "Bagagem 01",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = colors.text1
-                            )
-                            Text(
-                                text = "ID: IN-20481",
-                                fontSize = 12.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = colors.text2,
-                                modifier = Modifier.padding(top = 2.dp)
-                            )
+                is UiState.Success -> {
+                    val luggages = currentState.data
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(scrollState)
+                            .padding(16.dp)
+                    ) {
+                        // Banner de informação vinculado
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(colors.primaryLight)
+                                .border(1.5.dp, colors.primaryMid, RoundedCornerShape(12.dp))
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("⚡", fontSize = 16.sp, modifier = Modifier.padding(end = 10.dp))
+                            Column {
+                                Text(
+                                    text = "Suas bagagens",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = colors.primary
+                                )
+                                Text(
+                                    text = if (activeTicket != null)
+                                        "Vinculadas à viagem: ${activeTicket.departure} → ${activeTicket.arrival}"
+                                    else
+                                        "Vinculadas automaticamente à sua viagem.",
+                                    fontSize = 12.sp,
+                                    color = colors.text2
+                                )
+                            }
                         }
-                    }
 
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(100.dp))
-                            .background(colors.successLight)
-                            .border(1.dp, colors.success, RoundedCornerShape(100.dp))
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "✓ Registrada",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = colors.success
-                        )
-                    }
-                }
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Tabela interna reta e estruturada
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(colors.bg)
-                        .border(1.dp, colors.border, RoundedCornerShape(10.dp))
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Viagem", fontSize = 12.sp, color = colors.text2)
-                        Text("São Paulo → Rio de Janeiro", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = colors.text1)
-                    }
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(colors.border))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Status", fontSize = 12.sp, color = colors.text2)
-                        Text("✓ Registrada", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = colors.success)
-                    }
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(colors.border))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Identificação NFC", fontSize = 12.sp, color = colors.text2)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
+                        if (luggages.isEmpty()) {
+                            // Estado vazio quando não há bagagens
+                            Column(
                                 modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(colors.success.copy(alpha = alphaPulse))
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Ativo", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = colors.success)
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(colors.surface)
+                                    .border(1.dp, colors.border, RoundedCornerShape(14.dp))
+                                    .padding(28.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .clip(CircleShape)
+                                        .background(colors.primaryLight),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("🧳", fontSize = 30.sp)
+                                }
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Text(
+                                    text = "Nenhuma bagagem cadastrada",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = colors.text1
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Você ainda não possui volumes vinculados a esta viagem. Despache com antecedência para agilizar o embarque.",
+                                    fontSize = 13.sp,
+                                    color = colors.text2,
+                                    textAlign = TextAlign.Center,
+                                    lineHeight = 18.sp
+                                )
+                            }
+                        } else {
+                            // Lista de Bagagens Reais
+                            luggages.forEachIndexed { index, bag ->
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 14.dp)
+                                        .shadow(4.dp, RoundedCornerShape(12.dp), spotColor = Color.Black.copy(alpha = 0.06f))
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(colors.surface)
+                                        .border(1.dp, colors.border, RoundedCornerShape(12.dp))
+                                        .clickable { onNavigateToDetalhe(bag.baggageId) }
+                                        .padding(16.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            SuitcaseVector(
+                                                primaryColor = colors.primary,
+                                                lightColor = colors.primaryLight
+                                            )
+                                            Spacer(modifier = Modifier.width(14.dp))
+                                            Column {
+                                                Text(
+                                                    text = "Bagagem 0${index + 1}",
+                                                    fontSize = 16.sp,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    color = colors.text1
+                                                )
+                                                Text(
+                                                    text = "ID: ${bag.baggageId}",
+                                                    fontSize = 12.sp,
+                                                    fontFamily = FontFamily.Monospace,
+                                                    color = colors.text2,
+                                                    modifier = Modifier.padding(top = 2.dp)
+                                                )
+                                            }
+                                        }
+
+                                        val isChecked = activeTicket?.isUsed == true
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(100.dp))
+                                                .background(if (isChecked) colors.successLight else colors.primaryLight)
+                                                .border(1.dp, if (isChecked) colors.success else colors.primary, RoundedCornerShape(100.dp))
+                                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = if (isChecked) "✓ Embarcada" else "✓ Registrada",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isChecked) colors.success else colors.primary
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(14.dp))
+
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(colors.bg)
+                                            .border(1.dp, colors.border, RoundedCornerShape(10.dp))
+                                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 6.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text("Viagem", fontSize = 12.sp, color = colors.text2)
+                                            Text(
+                                                text = if (activeTicket != null) "${activeTicket.departure} → ${activeTicket.arrival}" else "São Paulo → Rio de Janeiro",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = colors.text1
+                                            )
+                                        }
+                                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(colors.border))
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 6.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text("Identificação NFC", fontSize = 12.sp, color = colors.text2)
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(8.dp)
+                                                        .clip(CircleShape)
+                                                        .background(colors.success.copy(alpha = alphaPulse))
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text("Ativo", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = colors.success)
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("Ver detalhes", fontSize = 12.sp, color = colors.text2, fontWeight = FontWeight.Medium)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("›", fontSize = 14.sp, color = colors.text3, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
                         }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Card de Adicionar Bagagem
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(colors.surface)
+                                .border(
+                                    width = 1.5.dp,
+                                    color = colors.primaryMid,
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .clickable { onNavigateToRegistrarBagagem() }
+                                .padding(18.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Start
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(colors.primaryLight),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("+", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = colors.primary)
+                                }
+                                Spacer(modifier = Modifier.width(14.dp))
+                                Column {
+                                    Text(
+                                        text = "Adicionar bagagem",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = colors.primary
+                                    )
+                                    Text(
+                                        text = "Registrar nova mala com NFC",
+                                        fontSize = 12.sp,
+                                        color = colors.text2,
+                                        modifier = Modifier.padding(top = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
                     }
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = "Esta bagagem será validada junto à sua viagem.",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = colors.primary,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Ver detalhes", fontSize = 12.sp, color = colors.text2, fontWeight = FontWeight.Medium)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("›", fontSize = 14.sp, color = colors.text3, fontWeight = FontWeight.Bold)
-                }
+                else -> {}
             }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Card de Adicionar Bagagem com Borda Retangular Pontilhada
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.surface)
-                    .border(
-                        width = 1.5.dp,
-                        color = colors.primaryMid,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .clickable { onNavigateToRegistrarBagagem() }
-                    .padding(18.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Start
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(colors.primaryLight),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("+", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = colors.primary)
-                    }
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Column {
-                        Text(
-                            text = "Adicionar bagagem",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = colors.primary
-                        )
-                        Text(
-                            text = "Registrar nova mala com NFC",
-                            fontSize = 12.sp,
-                            color = colors.text2,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
         }
 
         // Bottom Nav

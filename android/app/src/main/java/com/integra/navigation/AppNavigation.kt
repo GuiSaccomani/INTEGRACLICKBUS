@@ -9,13 +9,14 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.integra.presentation.auth.WelcomeScreen
+import com.integra.presentation.auth.BiometricScreen
+import com.integra.presentation.auth.ForgotPasswordScreen
 import com.integra.presentation.auth.LoginScreen
 import com.integra.presentation.auth.RegisterScreen
-import com.integra.presentation.auth.ForgotPasswordScreen
-import com.integra.presentation.auth.BiometricScreen
-import com.integra.presentation.passenger.*
+import com.integra.presentation.auth.WelcomeScreen
+import com.integra.presentation.common.ErroConexaoScreen
 import com.integra.presentation.driver.*
+import com.integra.presentation.passenger.*
 
 @Composable
 fun PlaceholderScreen(title: String) {
@@ -79,6 +80,18 @@ fun AppNavigation() {
             )
         }
 
+        // --- CONEXÃO / OFFLINE ---
+        composable("erro_conexao") {
+            ErroConexaoScreen(
+                onRetryConnect = { navController.popBackStack() },
+                onViewOfflineTicket = {
+                    navController.navigate("passenger_viagens") {
+                        popUpTo(0)
+                    }
+                }
+            )
+        }
+
         // --- PASSAGEIRO ---
         composable("passenger_home") {
             PassengerHomeScreen(
@@ -103,7 +116,7 @@ fun AppNavigation() {
                 onNavigateToViagens = { navController.navigate("passenger_viagens") { popUpTo(0) } },
                 onNavigateToConta = { navController.navigate("passenger_conta") { popUpTo(0) } },
                 onNavigateToRegistrarBagagem = { navController.navigate("passenger_bagagem_nova") },
-                onNavigateToDetalhe = { _ -> navController.navigate("passenger_bagagem_detalhe") }
+                onNavigateToDetalhe = { bagId -> navController.navigate("passenger_bagagem_detalhe/$bagId") }
             )
         }
         composable("passenger_conta") {
@@ -167,14 +180,36 @@ fun AppNavigation() {
                 }
             )
         }
+        composable("passenger_bagagem_detalhe/{baggageId}") { backStackEntry ->
+            val baggageId = backStackEntry.arguments?.getString("baggageId") ?: "IN-20481"
+            PassengerBagagemDetalheScreen(
+                baggageId = baggageId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToRetirada = { id -> navController.navigate("passenger_bagagem_retirada/$id") }
+            )
+        }
         composable("passenger_bagagem_detalhe") {
             PassengerBagagemDetalheScreen(
+                baggageId = "IN-20481",
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToRetirada = { navController.navigate("passenger_bagagem_retirada") }
+                onNavigateToRetirada = { id -> navController.navigate("passenger_bagagem_retirada/$id") }
+            )
+        }
+        composable("passenger_bagagem_retirada/{baggageId}") { backStackEntry ->
+            val baggageId = backStackEntry.arguments?.getString("baggageId") ?: "IN-20481"
+            PassengerRetiradaBagagemScreen(
+                baggageId = baggageId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToBagagens = {
+                    navController.navigate("passenger_bagagens") {
+                        popUpTo(0)
+                    }
+                }
             )
         }
         composable("passenger_bagagem_retirada") {
             PassengerRetiradaBagagemScreen(
+                baggageId = "IN-20481",
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToBagagens = {
                     navController.navigate("passenger_bagagens") {
@@ -185,6 +220,12 @@ fun AppNavigation() {
         }
         composable("passenger_historico") {
             PassengerHistoricoScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToHistoricoCompleto = { navController.navigate("passenger_historico_completo") }
+            )
+        }
+        composable("passenger_historico_completo") {
+            PassengerHistoricoCompletoScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -209,6 +250,7 @@ fun AppNavigation() {
                 onBaggageList = { navController.navigate("driver_baggage_list") },
                 onHistory = { navController.navigate("driver_history") },
                 onDesembarque = { navController.navigate("driver_desembarque") },
+                onConta = { navController.navigate("driver_conta") },
                 onPassengerMode = { navController.navigate("passenger_home") { popUpTo(0) } }
             )
         }
@@ -246,6 +288,17 @@ fun AppNavigation() {
         composable("driver_history") {
             DriverHistoryScreen(
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable("driver_conta") {
+            DriverContaScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToPassengerMode = { navController.navigate("passenger_home") { popUpTo(0) } },
+                onLogout = {
+                    navController.navigate("welcome") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
             )
         }
 

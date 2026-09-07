@@ -10,33 +10,64 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.integra.ui.theme.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.integra.data.local.SessionManager
+import com.integra.presentation.common.UiState
+import com.integra.presentation.viewmodel.PassengerTicketViewModel
+import com.integra.ui.theme.LocalIntegraColors
+import com.integra.util.FeedbackManager
 
 @Composable
 fun PassagemValidadaScreen(
     onNavigateToBagagens: () -> Unit,
-    onNavigateToHome: () -> Unit
+    onNavigateToHome: () -> Unit,
+    viewModel: PassengerTicketViewModel = viewModel()
 ) {
+    val colors = LocalIntegraColors.current
+    val context = LocalContext.current
     val scrollState = rememberScrollState()
-    val passengerName = "Guilherme Santos"
-    val seatNumber = "18"
-    val departure = "São Paulo"
-    val arrival = "Rio de Janeiro"
+
+    val sessionManager = remember { SessionManager.getInstance(context) }
+    val userId = remember { sessionManager.getCachedUserId() }
+
+    val activeTicketState by viewModel.activeTicketState.collectAsState()
+
+    LaunchedEffect(userId) {
+        if (activeTicketState is UiState.Idle) {
+            viewModel.loadTickets(userId)
+        }
+        FeedbackManager.vibrateSuccess(context)
+        FeedbackManager.playBeepSuccess(context)
+    }
+
+    val ticket = (activeTicketState as? UiState.Success)?.data
+        ?: remember { sessionManager.getCachedActiveTicket() }
+
+    val passengerName = ticket?.passengerName ?: "Guilherme Santos"
+    val seatNumber = "${ticket?.seat ?: 18}"
+    val departure = ticket?.departure ?: "São Paulo"
+    val arrival = ticket?.arrival ?: "Rio de Janeiro"
+    val departureTime = "14:30"
+    val tripDate = ticket?.tripDate ?: "21 AGO"
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DS_Bg)
+            .background(colors.bg)
             .verticalScroll(scrollState)
             .padding(horizontal = 20.dp, vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -44,8 +75,8 @@ fun PassagemValidadaScreen(
         // Badge Salvo no Sistema
         Row(
             modifier = Modifier
-                .background(DS_SuccessLight, RoundedCornerShape(100.dp))
-                .border(1.dp, DS_Success.copy(alpha = 0.4f), RoundedCornerShape(100.dp))
+                .background(colors.successLight, RoundedCornerShape(100.dp))
+                .border(1.dp, colors.success.copy(alpha = 0.4f), RoundedCornerShape(100.dp))
                 .padding(horizontal = 14.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -53,11 +84,11 @@ fun PassagemValidadaScreen(
             Box(
                 modifier = Modifier
                     .size(8.dp)
-                    .background(DS_Success, CircleShape)
+                    .background(colors.success, CircleShape)
             )
             Text(
-                text = "✓ SALVO NO SISTEMA · REGISTRO ATIVO",
-                color = DS_Success,
+                text = "✓ SALVO NO SISTEMA · EMBARQUE CONFIRMADO",
+                color = colors.success,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.ExtraBold,
                 letterSpacing = 0.5.sp
@@ -70,11 +101,8 @@ fun PassagemValidadaScreen(
         Box(
             modifier = Modifier
                 .size(88.dp)
-                .shadow(16.dp, CircleShape, ambientColor = DS_Success.copy(alpha = 0.4f))
-                .background(
-                    Brush.linearGradient(listOf(DS_Success, Color(0xFF15803D))),
-                    CircleShape
-                ),
+                .shadow(16.dp, CircleShape, ambientColor = colors.success.copy(alpha = 0.4f))
+                .background(colors.success, CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -91,7 +119,7 @@ fun PassagemValidadaScreen(
             text = "Passagem Aprovada!",
             fontSize = 26.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = DS_Text1,
+            color = colors.text1,
             textAlign = TextAlign.Center
         )
 
@@ -100,7 +128,7 @@ fun PassagemValidadaScreen(
         Text(
             text = "Embarque liberado com sucesso. Tenha uma ótima viagem!",
             fontSize = 14.sp,
-            color = DS_Text2,
+            color = colors.text2,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
@@ -112,8 +140,8 @@ fun PassagemValidadaScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .shadow(6.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x10000000))
-                .background(DS_Surface, RoundedCornerShape(20.dp))
-                .border(1.dp, DS_Border, RoundedCornerShape(20.dp))
+                .background(colors.surface, RoundedCornerShape(20.dp))
+                .border(1.dp, colors.border, RoundedCornerShape(20.dp))
                 .padding(18.dp)
         ) {
             Row(
@@ -128,104 +156,87 @@ fun PassagemValidadaScreen(
                     Box(
                         modifier = Modifier
                             .size(36.dp)
-                            .background(DS_PrimaryLight, RoundedCornerShape(10.dp)),
+                            .background(colors.primaryLight, RoundedCornerShape(10.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text("🎫", fontSize = 18.sp)
                     }
                     Column {
-                        Text("PASSAGEIRO", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = DS_Text3)
-                        Text(passengerName, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = DS_Text1)
+                        Text("PASSAGEIRO", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = colors.text3)
+                        Text(passengerName, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = colors.text1)
                     }
                 }
                 Box(
                     modifier = Modifier
-                        .background(DS_SuccessLight, RoundedCornerShape(100.dp))
-                        .border(1.dp, DS_Success, RoundedCornerShape(100.dp))
+                        .background(colors.successLight, RoundedCornerShape(100.dp))
+                        .border(1.dp, colors.success, RoundedCornerShape(100.dp))
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
-                    Text("Aprovada", color = DS_Success, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("Aprovada", color = colors.success, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Itinerário e Poltrona Box
+            // Rota
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(DS_Bg, RoundedCornerShape(12.dp))
-                    .border(1.dp, DS_Border, RoundedCornerShape(12.dp))
-                    .padding(14.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("ITINERÁRIO", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = DS_Text3)
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text("$departure → $arrival", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = DS_Text1)
+                    Text(departure, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = colors.text1)
+                    Text("Origem", fontSize = 11.sp, color = colors.text3)
                 }
+                Text("➔", fontSize = 18.sp, color = colors.primary, fontWeight = FontWeight.Bold)
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("POLTRONA", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = DS_Text3)
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(seatNumber, fontSize = 20.sp, fontWeight = FontWeight.Black, color = DS_Primary)
+                    Text(arrival, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = colors.text1)
+                    Text("Destino", fontSize = 11.sp, color = colors.text3)
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(colors.border))
+            Spacer(modifier = Modifier.height(16.dp))
 
+            // Horário, Poltrona e Data
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Horário: 14:30", fontSize = 12.sp, color = DS_Text2)
-                Text("Classe: Executivo", fontSize = 12.sp, color = DS_Text2)
-                Text("Portão: P4", fontSize = 12.sp, color = DS_Text2)
+                Column {
+                    Text("HORÁRIO", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = colors.text3)
+                    Text(departureTime, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = colors.text1)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("POLTRONA", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = colors.text3)
+                    Text(seatNumber, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = colors.primary)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("DATA", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = colors.text3)
+                    Text(tripDate, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = colors.text1)
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Card de Bagagem
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(DS_Surface, RoundedCornerShape(16.dp))
-                .border(1.dp, DS_Border, RoundedCornerShape(16.dp))
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .background(DS_PrimaryLight, RoundedCornerShape(12.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("🧳", fontSize = 22.sp)
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text("1 Bagagem Despachada", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = DS_Text1)
-                Text("Etiqueta: IN-20481 · No Bagageiro", fontSize = 12.sp, color = DS_Text2)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
         // Botões de Ação
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
-                .shadow(10.dp, RoundedCornerShape(100.dp), ambientColor = Color(0x307B2CBF))
-                .background(
-                    Brush.linearGradient(listOf(DS_PrimaryDark, DS_Primary)),
-                    RoundedCornerShape(100.dp)
-                )
+                .height(52.dp)
+                .shadow(8.dp, RoundedCornerShape(100.dp), ambientColor = colors.primary.copy(alpha = 0.3f))
+                .background(colors.primary, RoundedCornerShape(100.dp))
                 .clickable { onNavigateToBagagens() },
             contentAlignment = Alignment.Center
         ) {
-            Text("Ver Minhas Bagagens", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(
+                text = "Conferir Minhas Bagagens",
+                color = Color.White,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -233,12 +244,18 @@ fun PassagemValidadaScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
-                .border(1.5.dp, DS_BorderMd, RoundedCornerShape(100.dp))
+                .height(52.dp)
+                .background(colors.surface, RoundedCornerShape(100.dp))
+                .border(1.dp, colors.borderMd, RoundedCornerShape(100.dp))
                 .clickable { onNavigateToHome() },
             contentAlignment = Alignment.Center
         ) {
-            Text("Voltar ao Início", color = DS_Text1, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                text = "Voltar ao Início",
+                color = colors.text1,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }

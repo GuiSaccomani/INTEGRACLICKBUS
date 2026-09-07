@@ -9,7 +9,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -17,11 +20,18 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.integra.data.local.SessionManager
+import com.integra.nfc.IntegraHceService
+import com.integra.presentation.common.UiState
+import com.integra.presentation.viewmodel.PassengerTicketViewModel
 import com.integra.ui.theme.*
+import com.integra.util.FeedbackManager
 
 @Composable
 fun NFCRipple(delayMillis: Int, sizeDp: Int) {
@@ -54,8 +64,36 @@ fun NFCRipple(delayMillis: Int, sizeDp: Int) {
 
 @Composable
 fun CredencialNFCScreen(
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    viewModel: PassengerTicketViewModel = viewModel()
 ) {
+    val colors = LocalIntegraColors.current
+    val context = LocalContext.current
+    val sessionManager = remember { SessionManager.getInstance(context) }
+    val userId = remember { sessionManager.getCachedUserId() }
+
+    val activeTicketState by viewModel.activeTicketState.collectAsState()
+
+    LaunchedEffect(userId) {
+        if (activeTicketState is UiState.Idle) {
+            viewModel.loadTickets(userId)
+        }
+    }
+
+    val ticket = (activeTicketState as? UiState.Success)?.data
+        ?: remember { sessionManager.getCachedActiveTicket() }
+
+    LaunchedEffect(ticket) {
+        if (ticket != null) {
+            val cred = ticket.utHash ?: ticket.ticketId
+            IntegraHceService.activeCredentialRef = cred
+            FeedbackManager.vibrateSuccess(context)
+        }
+    }
+
+    val activeOperator by OperatorManager.currentOperator.collectAsState()
+    val operatorName = activeOperator.name
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -64,8 +102,8 @@ fun CredencialNFCScreen(
                     colors = listOf(
                         Color(0xFF0D0118),
                         Color(0xFF1A0533),
-                        DS_Primary,
-                        DS_Secondary
+                        colors.primary,
+                        colors.secondary
                     )
                 )
             )
@@ -89,7 +127,12 @@ fun CredencialNFCScreen(
                 Text("<", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
             Spacer(modifier = Modifier.width(16.dp))
-            Text("Credencial NFC", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.85f))
+            Text(
+                text = "Credencial NFC",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White.copy(alpha = 0.85f)
+            )
         }
 
         // Card Area
@@ -100,19 +143,26 @@ fun CredencialNFCScreen(
                 .padding(horizontal = 24.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Apple Wallet Style Card
+            // Cartão Estilo Wallet
             Column(
                 modifier = Modifier
-                    .fillMaxWidth(0.9f)
+                    .fillMaxWidth(0.92f)
                     .shadow(24.dp, RoundedCornerShape(28.dp))
                     .clip(RoundedCornerShape(28.dp))
-                    .background(Brush.linearGradient(colors = listOf(Color.White.copy(alpha = 0.18f), Color.White.copy(alpha = 0.06f))))
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.18f),
+                                Color.White.copy(alpha = 0.06f)
+                            )
+                        )
+                    )
                     .border(1.5.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(28.dp))
-                    .padding(24.dp, 26.dp, 24.dp, 22.dp)
+                    .padding(22.dp, 24.dp, 22.dp, 20.dp)
             ) {
                 // Card Header
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 22.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 18.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -128,65 +178,98 @@ fun CredencialNFCScreen(
                             Text("I", color = Color.White, fontWeight = FontWeight.Black)
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Íntegra", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Color.White.copy(alpha = 0.9f))
+                        Text(
+                            text = operatorName,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White.copy(alpha = 0.9f)
+                        )
                     }
-                    Text("ClickBus", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.4f), letterSpacing = 0.5.sp)
+                    Text(
+                        text = "EMBARQUE NFC",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White.copy(alpha = 0.6f),
+                        letterSpacing = 0.5.sp
+                    )
                 }
 
-                // Passenger Name
-                Column(modifier = Modifier.padding(bottom = 18.dp)) {
-                    Text("PASSAGEIRO", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.45f), letterSpacing = 1.sp)
-                    Text("Guilherme", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, letterSpacing = (-0.5).sp)
-                    Text("Santos", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.55f))
+                // Nome do Passageiro
+                Column(modifier = Modifier.padding(bottom = 16.dp)) {
+                    Text(
+                        text = "PASSAGEIRO",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White.copy(alpha = 0.45f),
+                        letterSpacing = 1.sp
+                    )
+                    Text(
+                        text = ticket?.passengerName ?: "Guilherme Santos",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White,
+                        letterSpacing = (-0.5).sp
+                    )
                 }
 
-                // Route & Time
+                // Rota & Poltrona
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color.Black.copy(alpha = 0.2f), RoundedCornerShape(14.dp))
                         .padding(16.dp, 14.dp)
-                        .padding(bottom = 16.dp)
                 ) {
                     Row(
                         modifier = Modifier.padding(bottom = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("São Paulo", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                        Text(
+                            text = ticket?.departure ?: "São Paulo",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White
+                        )
                         Text("  ➔  ", fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f))
-                        Text("Belo Horizonte", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                        Text(
+                            text = ticket?.arrival ?: "Rio de Janeiro",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White
+                        )
                     }
 
                     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                         Column {
                             Text("PARTIDA", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.4f), letterSpacing = 0.8.sp)
-                            Text("15:30", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                            Text("14:30", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
                         }
                         Column {
                             Text("POLTRONA", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.4f), letterSpacing = 0.8.sp)
-                            Text("18", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                            Text("${ticket?.seat ?: 18}", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
                         }
                         Column {
                             Text("DATA", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.4f), letterSpacing = 0.8.sp)
-                            Text("25 Mai", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                            Text(ticket?.tripDate ?: "21 AGO", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
                         }
                     }
                 }
 
+                Spacer(modifier = Modifier.height(14.dp))
+
                 // NFC Status
                 Row(
                     modifier = Modifier
-                        .background(DS_Success.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
-                        .border(1.5.dp, DS_Success.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
-                        .padding(14.dp, 10.dp),
+                        .background(colors.success.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                        .border(1.5.dp, colors.success.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                        .padding(12.dp, 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     val infiniteTransition = rememberInfiniteTransition()
                     val dotScale by infiniteTransition.animateFloat(
                         initialValue = 1f,
-                        targetValue = 1.15f,
+                        targetValue = 1.2f,
                         animationSpec = infiniteRepeatable(
-                            animation = tween(1800, easing = FastOutSlowInEasing),
+                            animation = tween(1600, easing = FastOutSlowInEasing),
                             repeatMode = RepeatMode.Reverse
                         )
                     )
@@ -194,66 +277,66 @@ fun CredencialNFCScreen(
                         modifier = Modifier
                             .size(8.dp)
                             .scale(dotScale)
-                            .shadow(8.dp, CircleShape, spotColor = DS_Success)
-                            .background(DS_Success, CircleShape)
+                            .shadow(8.dp, CircleShape, spotColor = colors.success)
+                            .background(colors.success, CircleShape)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
-                    Text("NFC pronto para validação", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = DS_Success)
+                    Text("NFC pronto para validação", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = colors.success)
                 }
             }
 
-            // NFC Animation Zone
+            // Animação de Proximidade NFC
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 36.dp),
+                    .padding(top = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
-                    modifier = Modifier.size(100.dp),
+                    modifier = Modifier.size(90.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    NFCRipple(delayMillis = 0, sizeDp = 100)
-                    NFCRipple(delayMillis = 550, sizeDp = 100)
-                    NFCRipple(delayMillis = 1100, sizeDp = 100)
+                    NFCRipple(delayMillis = 0, sizeDp = 90)
+                    NFCRipple(delayMillis = 550, sizeDp = 90)
+                    NFCRipple(delayMillis = 1100, sizeDp = 90)
 
                     val infiniteTransition = rememberInfiniteTransition()
                     val centerScale by infiniteTransition.animateFloat(
                         initialValue = 1f,
-                        targetValue = 1.06f,
+                        targetValue = 1.08f,
                         animationSpec = infiniteRepeatable(
-                            animation = tween(2500, easing = FastOutSlowInEasing),
+                            animation = tween(2200, easing = FastOutSlowInEasing),
                             repeatMode = RepeatMode.Reverse
                         )
                     )
 
                     Box(
                         modifier = Modifier
-                            .size(64.dp)
+                            .size(58.dp)
                             .scale(centerScale)
                             .shadow(10.dp, CircleShape, spotColor = Color.Black.copy(alpha = 0.3f))
                             .clip(CircleShape)
                             .background(Color.White.copy(alpha = 0.15f))
-                            .border(2.dp, Color.White.copy(alpha = 0.25f), CircleShape),
+                            .border(2.dp, Color.White.copy(alpha = 0.3f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("SCAN", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("NFC", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 Text(
-                    "Aproxime seu celular",
+                    text = "Aproxime seu celular",
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
                     letterSpacing = (-0.2).sp
                 )
                 Text(
-                    "do dispositivo de leitura na plataforma",
+                    text = "do dispositivo de leitura do motorista",
                     fontSize = 13.sp,
-                    color = Color.White.copy(alpha = 0.55f),
+                    color = Color.White.copy(alpha = 0.6f),
                     textAlign = TextAlign.Center
                 )
             }

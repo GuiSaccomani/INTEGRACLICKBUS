@@ -36,6 +36,24 @@ fun DigitalBoardingPassScreen(
     onNavigateToQrCode: () -> Unit = {},
     onNavigateToValidada: () -> Unit = {}
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val sessionManager = remember { com.integra.data.local.SessionManager.getInstance(context) }
+    var activeTicket by remember { mutableStateOf<com.integra.data.model.TicketDetailsDto?>(null) }
+
+    LaunchedEffect(Unit) {
+        val cached = sessionManager.getActiveOfflineTicket()
+        if (cached != null) {
+            activeTicket = cached
+        } else {
+            val userId = sessionManager.getUserId() ?: "E1F2A3B4C5D6E7F80123456789ABCDEF"
+            val res = com.integra.data.repository.PassengerRepository().getUserTickets(userId)
+            res.onSuccess { list ->
+                sessionManager.saveOfflineTickets(list)
+                activeTicket = list.firstOrNull { it.isReadyToBoard } ?: list.firstOrNull()
+            }
+        }
+    }
+
     var flipped by remember { mutableStateOf(false) }
     val rotation by animateFloatAsState(
         targetValue = if (flipped) 180f else 0f,
@@ -120,9 +138,10 @@ fun DigitalBoardingPassScreen(
                             ) {
                                 Column {
                                     Text("PASSAGEIRO", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = DS_Text3)
-                                    Text("Guilherme Santos", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = DS_Text1)
+                                    Text(activeTicket?.passengerName ?: "Guilherme Santos", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = DS_Text1)
                                 }
-                                StatusBadge("Pronto", "success")
+                                val isUsed = activeTicket?.used == 1
+                                StatusBadge(if (isUsed) "Embarcado" else "Pronto", if (isUsed) "primary" else "success")
                             }
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -131,18 +150,17 @@ fun DigitalBoardingPassScreen(
                             ) {
                                 Column {
                                     Text("ORIGEM", fontSize = 10.sp, color = DS_Text3)
-                                    Text("SP", fontSize = 24.sp, fontWeight = FontWeight.Black, color = DS_Text1)
-                                    Text("São Paulo", fontSize = 11.sp, color = DS_Text2)
+                                    Text(activeTicket?.departure?.take(2)?.uppercase() ?: "SP", fontSize = 24.sp, fontWeight = FontWeight.Black, color = DS_Text1)
+                                    Text(activeTicket?.departure ?: "São Paulo", fontSize = 11.sp, color = DS_Text2)
                                 }
                                 Text("~5h30", fontSize = 9.sp, color = DS_Text3)
                                 Column(horizontalAlignment = Alignment.End) {
                                     Text("DESTINO", fontSize = 10.sp, color = DS_Text3)
-                                    Text("RJ", fontSize = 24.sp, fontWeight = FontWeight.Black, color = DS_Text1)
-                                    Text("Rio de Janeiro", fontSize = 11.sp, color = DS_Text2)
+                                    Text(activeTicket?.arrival?.take(2)?.uppercase() ?: "RJ", fontSize = 24.sp, fontWeight = FontWeight.Black, color = DS_Text1)
+                                    Text(activeTicket?.arrival ?: "Rio de Janeiro", fontSize = 11.sp, color = DS_Text2)
                                 }
                             }
                         }
-                        // Dashed separator simulation (Solid for simplicity)
                         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(DS_Border))
                         Column(
                             modifier = Modifier
@@ -152,7 +170,7 @@ fun DigitalBoardingPassScreen(
                             Row(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text("DATA", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = DS_Text3)
-                                    Text("21 AGO", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = DS_Text1)
+                                    Text(activeTicket?.tripDate ?: "21 AGO", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = DS_Text1)
                                 }
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text("HORÁRIO", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = DS_Text3)
@@ -160,13 +178,18 @@ fun DigitalBoardingPassScreen(
                                 }
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text("ASSENTO", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = DS_Text3)
-                                    Text("18", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = DS_Text1)
+                                    Text("${activeTicket?.seat ?: 18}", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = DS_Text1)
                                 }
                             }
                         }
                     }
                 } else {
-                    // BACK (QR Code placeholder)
+                    // BACK (QR Code REAL e escaneável gerado dinamicamente com ZXing)
+                    val credentialData = activeTicket?.utHash ?: activeTicket?.ticketId ?: "INTEGRA:V1:UT_7A9B2C4D8E1F3A5B"
+                    val qrImageBitmap = remember(credentialData) {
+                        com.integra.qr.QrCodeGenerator.generateImageBitmap(credentialData, 400)
+                    }
+
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -179,38 +202,21 @@ fun DigitalBoardingPassScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        Text("QR Code alternativo", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = DS_Text1)
-                        Text("Use se NFC não estiver disponível", fontSize = 11.sp, color = DS_Text3, modifier = Modifier.padding(bottom = 14.dp))
+                        Text("QR Code Oficial de Embarque", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = DS_Text1)
+                        Text("Aponte para o leitor do motorista", fontSize = 11.sp, color = DS_Text3, modifier = Modifier.padding(bottom = 10.dp))
                         Box(
                             modifier = Modifier
-                                .size(160.dp)
-                                .background(Color.White)
+                                .size(170.dp)
+                                .background(Color.White, RoundedCornerShape(8.dp))
+                                .border(1.dp, DS_BorderMd, RoundedCornerShape(8.dp))
                                 .padding(8.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Canvas(modifier = Modifier.fillMaxSize()) {
-                                val squareSize = size.width / 8
-                                for (i in 0 until 8) {
-                                    for (j in 0 until 8) {
-                                        // Randomly draw squares to fake a QR code, but keep the corners
-                                        val isCorner = (i < 3 && j < 3) || (i > 4 && j < 3) || (i < 3 && j > 4)
-                                        if (isCorner || (i * j + i + j) % 3 == 0) {
-                                            drawRect(
-                                                color = Color.Black,
-                                                topLeft = Offset(i * squareSize, j * squareSize),
-                                                size = Size(squareSize - 1, squareSize - 1)
-                                            )
-                                        }
-                                    }
-                                }
-                                // Draw corner markers
-                                drawRect(Color.White, topLeft = Offset(squareSize, squareSize), size = Size(squareSize, squareSize))
-                                drawRect(Color.White, topLeft = Offset(size.width - 2 * squareSize, squareSize), size = Size(squareSize, squareSize))
-                                drawRect(Color.White, topLeft = Offset(squareSize, size.height - 2 * squareSize), size = Size(squareSize, squareSize))
-                                drawRect(Color.Black, topLeft = Offset(squareSize + 2, squareSize + 2), size = Size(squareSize - 4, squareSize - 4))
-                                drawRect(Color.Black, topLeft = Offset(size.width - 2 * squareSize + 2, squareSize + 2), size = Size(squareSize - 4, squareSize - 4))
-                                drawRect(Color.Black, topLeft = Offset(squareSize + 2, size.height - 2 * squareSize + 2), size = Size(squareSize - 4, squareSize - 4))
-                            }
+                            androidx.compose.foundation.Image(
+                                bitmap = qrImageBitmap,
+                                contentDescription = "QR Code oficial e escaneável do passageiro",
+                                modifier = Modifier.fillMaxSize()
+                            )
                         }
                     }
                 }

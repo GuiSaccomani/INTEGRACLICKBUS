@@ -26,11 +26,50 @@ fun QRCodeScreen(
     onNavigateBack: () -> Unit,
     onNavigateToValidada: () -> Unit = {}
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val sessionManager = remember { com.integra.data.local.SessionManager.getInstance(context) }
+    val feedbackManager = remember { com.integra.util.FeedbackManager.getInstance(context) }
     val scrollState = rememberScrollState()
-    val passengerName = "Guilherme Santos"
-    val seatNumber = "18"
-    val route = "São Paulo → Rio de Janeiro"
-    val credentialRef = "UT_7A9B2C4D8E1F3A5B"
+
+    var activeTicket by remember { mutableStateOf<com.integra.data.model.TicketDetailsDto?>(null) }
+    var isScanningMode by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        val cached = sessionManager.getActiveOfflineTicket()
+        if (cached != null) {
+            activeTicket = cached
+        } else {
+            val userId = sessionManager.getUserId() ?: "E1F2A3B4C5D6E7F80123456789ABCDEF"
+            val res = com.integra.data.repository.PassengerRepository().getUserTickets(userId)
+            res.onSuccess { list ->
+                sessionManager.saveOfflineTickets(list)
+                activeTicket = list.firstOrNull { it.isReadyToBoard } ?: list.firstOrNull()
+            }
+        }
+    }
+
+    val passengerName = activeTicket?.passengerName ?: "Guilherme Santos"
+    val seatNumber = "${activeTicket?.seat ?: 18}"
+    val route = if (activeTicket != null) "${activeTicket!!.departure} → ${activeTicket!!.arrival}" else "São Paulo → Rio de Janeiro"
+    val credentialRef = activeTicket?.utHash ?: activeTicket?.ticketId ?: "UT_7A9B2C4D8E1F3A5B"
+
+    val qrImageBitmap = remember(credentialRef) {
+        com.integra.qr.QrCodeGenerator.generateImageBitmap(credentialRef, 400)
+    }
+
+    if (isScanningMode) {
+        com.integra.qr.QrScannerView(
+            onCodeScanned = { scannedCode ->
+                feedbackManager.notifySuccess("QR Code validado com sucesso")
+                isScanningMode = false
+                onNavigateToValidada()
+            },
+            onDismiss = {
+                isScanningMode = false
+            }
+        )
+        return
+    }
 
     Column(
         modifier = Modifier
@@ -77,7 +116,18 @@ fun QRCodeScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.size(40.dp))
+            // Botão para abrir câmera e ler QR Code
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(DS_PrimaryLight)
+                    .border(1.dp, DS_PrimaryMid, RoundedCornerShape(12.dp))
+                    .clickable { isScanningMode = true },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("📷", fontSize = 18.sp)
+            }
         }
 
         // Scrollable Body
@@ -98,7 +148,7 @@ fun QRCodeScreen(
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Text(
-                    text = "Pronto para Validação",
+                    text = if (activeTicket?.used == 1) "Embarque Realizado" else "Pronto para Validação",
                     color = DS_Success,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
@@ -117,28 +167,20 @@ fun QRCodeScreen(
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // QR Code Visual Box
+                // QR Code Visual Box com imagem real ZXing
                 Box(
                     modifier = Modifier
                         .size(200.dp)
-                        .background(Color(0xFFF8FAFC), RoundedCornerShape(16.dp))
+                        .background(Color.White, RoundedCornerShape(16.dp))
                         .border(1.5.dp, DS_BorderMd, RoundedCornerShape(16.dp))
-                        .padding(16.dp),
+                        .padding(14.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "█▀▀▀▀▀█ ▄ █▀▀▀▀▀█\n█ ███ █ █ █ ███ █\n█ ▀▀▀ █ ▄ █ ▀▀▀ █\n▀▀▀▀▀▀▀ ▀ ▀▀▀▀▀▀▀\n█ █▄ ▀▄▀▀▄█▄▀█▀▄█\n▀ ▀▀ ▀▀ ▀ ▀▀▀▀  ▀\n█▀▀▀▀▀█ ▄ █▄█ ▀ █\n█ ███ █ █ █ ▀██▄█\n█ ▀▀▀ █ ▄ ▀▀▀█ ▀█\n▀▀▀▀▀▀▀ ▀▀ ▀ ▀  ▀",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 11.sp,
-                            lineHeight = 12.sp,
-                            color = DS_PrimaryDark,
-                            textAlign = TextAlign.Center
-                        )
-                    }
+                    androidx.compose.foundation.Image(
+                        bitmap = qrImageBitmap,
+                        contentDescription = "QR Code real gerado para validação de passagem",
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -148,7 +190,7 @@ fun QRCodeScreen(
                     fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp,
                     color = DS_Text2,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.Bold
                 )
 
                 Spacer(modifier = Modifier.height(18.dp))

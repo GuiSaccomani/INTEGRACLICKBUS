@@ -4,11 +4,16 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import com.google.gson.reflect.TypeToken
+import com.integra.data.model.TicketDetailsDto
 import com.integra.data.model.UserProfileDto
 import com.integra.data.model.UserRoleDto
+import com.integra.data.network.RetrofitClient
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
+import java.lang.reflect.Type
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "integra_session")
 
@@ -24,6 +29,7 @@ class SessionManager(private val context: Context) {
         val KEY_ACTIVE_TICKET_ID = stringPreferencesKey("active_ticket_id")
         val KEY_ACTIVE_CREDENTIAL_REF = stringPreferencesKey("active_credential_ref")
         val KEY_CUSTOM_SERVER_URL = stringPreferencesKey("custom_server_url")
+        val KEY_OFFLINE_TICKETS = stringPreferencesKey("offline_tickets")
 
         @Volatile
         private var INSTANCE: SessionManager? = null
@@ -88,11 +94,51 @@ class SessionManager(private val context: Context) {
             prefs.remove(KEY_IS_OPERATOR)
             prefs.remove(KEY_ACTIVE_TICKET_ID)
             prefs.remove(KEY_ACTIVE_CREDENTIAL_REF)
+            prefs.remove(KEY_OFFLINE_TICKETS)
         }
     }
 
     suspend fun getUserId(): String? {
         val prefs = context.dataStore.data.first()
         return prefs[KEY_USER_ID]
+    }
+
+    // Cache offline de passagens
+    suspend fun saveOfflineTickets(tickets: List<TicketDetailsDto>) {
+        try {
+            val json = RetrofitClient.gson.toJson(tickets)
+            context.dataStore.edit { prefs ->
+                prefs[KEY_OFFLINE_TICKETS] = json
+            }
+        } catch (_: Exception) {}
+    }
+
+    suspend fun getOfflineTickets(): List<TicketDetailsDto> {
+        return try {
+            val prefs = context.dataStore.data.first()
+            val json = prefs[KEY_OFFLINE_TICKETS] ?: return emptyList()
+            val listType: Type = object : TypeToken<List<TicketDetailsDto>>() {}.type
+            val result: List<TicketDetailsDto>? = RetrofitClient.gson.fromJson(json, listType)
+            result ?: emptyList()
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun getActiveOfflineTicket(): TicketDetailsDto? {
+        val tickets = getOfflineTickets()
+        return tickets.firstOrNull { it.isReadyToBoard } ?: tickets.firstOrNull()
+    }
+
+    fun getCachedActiveTicket(): TicketDetailsDto? = try {
+        runBlocking { getActiveOfflineTicket() }
+    } catch (_: Exception) {
+        null
+    }
+
+    fun getCachedUserId(): String = try {
+        runBlocking { getUserId() ?: "USR-001" }
+    } catch (_: Exception) {
+        "USR-001"
     }
 }

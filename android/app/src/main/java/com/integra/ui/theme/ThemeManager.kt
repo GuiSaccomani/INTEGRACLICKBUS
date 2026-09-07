@@ -23,11 +23,12 @@ object ThemeManager {
     val currentMode: ThemeMode get() = _themeMode.value
 }
 
-// Cores dinâmicas por tema
+// Cores dinâmicas por tema e operadora white-label
 class IntegraColors(
     val isDark: Boolean,
-    val primary: Color = Color(0xFF7B2CBF),
-    val primaryDark: Color = Color(0xFF5B1A9F),
+    val operator: OperatorInfo = OperatorManager.currentOperator.value,
+    val primary: Color = operator.primaryColor,
+    val primaryDark: Color = operator.primaryDarkColor,
     val primaryLight: Color = if (isDark) Color(0xFF261338) else Color(0xFFF5F0FF),
     val primaryMid: Color = if (isDark) Color(0xFF4C1D95) else Color(0xFFDDD6FE),
     val secondary: Color = Color(0xFF9D4EDD),

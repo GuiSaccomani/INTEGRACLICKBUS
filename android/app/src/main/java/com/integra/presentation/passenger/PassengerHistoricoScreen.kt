@@ -8,204 +8,268 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.integra.ui.theme.*
-
-data class TripHistoryItem(
-    val id: Int,
-    val from: String,
-    val to: String,
-    val date: String,
-    val time: String,
-    val status: String,
-    val isSuccess: Boolean
-)
-
-private val TRIPS_LIST = listOf(
-    TripHistoryItem(1, "São Paulo", "Rio de Janeiro", "21 AGO 2025", "14:30", "Pronta para embarque", true),
-    TripHistoryItem(2, "São Paulo", "Campinas", "12 AGO 2025", "09:00", "Concluída", false),
-    TripHistoryItem(3, "Campinas", "Rio de Janeiro", "28 JUL 2025", "16:30", "Concluída", false),
-    TripHistoryItem(4, "Rio de Janeiro", "São Paulo", "15 JUL 2025", "08:45", "Concluída", false),
-    TripHistoryItem(5, "São Paulo", "Ribeirão Preto", "02 JUN 2025", "11:00", "Concluída", false)
-)
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.integra.data.local.SessionManager
+import com.integra.presentation.common.ErrorStateView
+import com.integra.presentation.common.LoadingStateView
+import com.integra.presentation.common.UiState
+import com.integra.presentation.viewmodel.PassengerTicketViewModel
+import com.integra.ui.theme.LocalIntegraColors
 
 @Composable
 fun PassengerHistoricoScreen(
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToHistoricoCompleto: () -> Unit = {},
+    viewModel: PassengerTicketViewModel = viewModel()
 ) {
+    val colors = LocalIntegraColors.current
+    val context = LocalContext.current
+    val sessionManager = remember { SessionManager.getInstance(context) }
+    val userId = remember { sessionManager.getCachedUserId() }
+
+    val ticketsState by viewModel.ticketsListState.collectAsState()
+
+    LaunchedEffect(userId) {
+        if (ticketsState is UiState.Idle) {
+            viewModel.loadTickets(userId)
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DS_Bg)
+            .background(colors.bg)
     ) {
         // Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(DS_Surface)
+                .background(colors.surface)
                 .padding(start = 16.dp, end = 16.dp, top = 50.dp, bottom = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(DS_Bg)
-                    .clickable { onNavigateBack() },
-                contentAlignment = Alignment.Center
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(colors.bg)
+                        .clickable { onNavigateBack() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "←",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.text1
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "←",
-                    fontSize = 20.sp,
+                    text = "Histórico de viagens",
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = DS_Text1
+                    color = colors.text1
                 )
             }
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = "Histórico de viagens",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = DS_Text1
-            )
-        }
-        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(DS_Border))
 
-        // Body
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(vertical = 16.dp)
-        ) {
-            // Chips de resumo
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp, start = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(100.dp))
-                            .background(DS_PrimaryLight)
-                            .border(1.dp, DS_BorderMd, RoundedCornerShape(100.dp))
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = "5 viagens",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = DS_Primary
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(100.dp))
-                            .background(DS_Surface)
-                            .border(1.dp, DS_BorderMd, RoundedCornerShape(100.dp))
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = "2025",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = DS_Text2
-                        )
-                    }
-                }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(colors.primaryLight)
+                    .border(1.dp, colors.primaryMid, RoundedCornerShape(8.dp))
+                    .clickable { onNavigateToHistoricoCompleto() }
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = "Ver Todas",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = colors.primary
+                )
             }
+        }
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(colors.border))
 
-            // Lista de viagens
-            itemsIndexed(TRIPS_LIST) { index, trip ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 10.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(DS_Surface)
-                        .border(1.dp, DS_Border, RoundedCornerShape(16.dp))
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Ícone da rota
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(13.dp))
-                            .background(if (index == 0) DS_PrimaryLight else DS_Bg),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "🚌",
-                            fontSize = 18.sp
-                        )
-                    }
+        // Body com UiState
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            when (val currentState = ticketsState) {
+                is UiState.Loading -> {
+                    LoadingStateView(message = "Carregando histórico de viagens...")
+                }
+                is UiState.Error -> {
+                    ErrorStateView(
+                        message = currentState.message,
+                        onRetry = { viewModel.loadTickets(userId) }
+                    )
+                }
+                is UiState.Success -> {
+                    val tickets = currentState.data
 
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    // Detalhes da rota
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (tickets.isEmpty()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .clip(CircleShape)
+                                    .background(colors.primaryLight),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("🎫", fontSize = 28.sp)
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = trip.from,
-                                fontSize = 14.sp,
+                                text = "Nenhuma viagem encontrada",
+                                fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = DS_Text1,
-                                letterSpacing = (-0.2).sp
+                                color = colors.text1
                             )
+                            Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = " → ",
+                                text = "Suas viagens concluídas e ativas aparecerão listadas aqui.",
                                 fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = DS_Text3
-                            )
-                            Text(
-                                text = trip.to,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = DS_Text1,
-                                letterSpacing = (-0.2).sp
+                                color = colors.text2,
+                                textAlign = TextAlign.Center
                             )
                         }
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Text(
-                            text = "${trip.date} · ${trip.time}",
-                            fontSize = 12.sp,
-                            color = DS_Text2
-                        )
-                    }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp),
+                            contentPadding = PaddingValues(vertical = 16.dp)
+                        ) {
+                            // Chips de resumo
+                            item {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 16.dp, start = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(100.dp))
+                                            .background(colors.primaryLight)
+                                            .border(1.dp, colors.borderMd, RoundedCornerShape(100.dp))
+                                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    ) {
+                                        Text(
+                                            text = "${tickets.size} viagens",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = colors.primary
+                                        )
+                                    }
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(100.dp))
+                                            .background(colors.surface)
+                                            .border(1.dp, colors.borderMd, RoundedCornerShape(100.dp))
+                                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    ) {
+                                        Text(
+                                            text = "Embarcadas: ${tickets.count { it.used == 1 }}",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = colors.text2
+                                        )
+                                    }
+                                }
+                            }
 
-                    // Badge de status
-                    val badgeBg = if (trip.isSuccess) Color(0xFFD1FAE5) else DS_Bg
-                    val badgeColor = if (trip.isSuccess) Color(0xFF065F46) else DS_Text2
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(100.dp))
-                            .background(badgeBg)
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                    ) {
-                        Text(
-                            text = trip.status,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = badgeColor
-                        )
+                            // Lista de viagens reais
+                            itemsIndexed(tickets) { _, trip ->
+                                val isBoarded = trip.used == 1
+                                val statusText = when {
+                                    isBoarded -> "Embarcada"
+                                    trip.isReadyToBoard -> "Pronta para embarque"
+                                    else -> "Confirmada"
+                                }
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 10.dp)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(colors.surface)
+                                        .border(1.dp, colors.border, RoundedCornerShape(16.dp))
+                                        .padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Ícone da rota
+                                    Box(
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .clip(RoundedCornerShape(13.dp))
+                                            .background(if (trip.isReadyToBoard) colors.primaryLight else colors.bg),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = if (trip.isReadyToBoard) "🚌" else "✓",
+                                            fontSize = 18.sp
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(14.dp))
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "${trip.departure} → ${trip.arrival}",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = colors.text1
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "${trip.tripDate} · Poltrona ${trip.seat}",
+                                            fontSize = 12.sp,
+                                            color = colors.text2
+                                        )
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(100.dp))
+                                            .background(if (isBoarded) colors.successLight else colors.primaryLight)
+                                            .border(
+                                                1.dp,
+                                                if (isBoarded) colors.success else colors.primaryMid,
+                                                RoundedCornerShape(100.dp)
+                                            )
+                                            .padding(horizontal = 9.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = statusText,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isBoarded) colors.success else colors.primary
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
+                else -> {}
             }
         }
     }

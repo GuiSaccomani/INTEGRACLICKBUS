@@ -9,61 +9,51 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.integra.ui.theme.*
-
-data class NotificationItem(
-    val id: Int,
-    val title: String,
-    val desc: String,
-    val time: String,
-    val isNew: Boolean
-)
-
-private val NOTIFICATIONS_LIST = listOf(
-    NotificationItem(
-        id = 1,
-        title = "Embarque Iniciado",
-        desc = "O embarque para a sua viagem para o Rio de Janeiro acaba de começar. Dirija-se à plataforma.",
-        time = "Agora mesmo",
-        isNew = true
-    ),
-    NotificationItem(
-        id = 2,
-        title = "Troca de Plataforma",
-        desc = "Atenção: A plataforma da sua viagem foi alterada para a Plataforma P4.",
-        time = "Há 15 min",
-        isNew = true
-    ),
-    NotificationItem(
-        id = 3,
-        title = "Bem-vindo ao Íntegra",
-        desc = "Seu cadastro foi realizado com sucesso. Prepare-se para embarcar via NFC.",
-        time = "Ontem",
-        isNew = false
-    )
-)
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.integra.data.local.SessionManager
+import com.integra.presentation.common.ErrorStateView
+import com.integra.presentation.common.LoadingStateView
+import com.integra.presentation.common.UiState
+import com.integra.presentation.viewmodel.PassengerTicketViewModel
+import com.integra.ui.theme.LocalIntegraColors
 
 @Composable
 fun PassengerNotificacoesScreen(
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    viewModel: PassengerTicketViewModel = viewModel()
 ) {
+    val colors = LocalIntegraColors.current
+    val context = LocalContext.current
+    val sessionManager = remember { SessionManager.getInstance(context) }
+    val userId = remember { sessionManager.getCachedUserId() }
+
+    val notificationsState by viewModel.notificationsState.collectAsState()
+
+    LaunchedEffect(userId) {
+        if (notificationsState is UiState.Idle) {
+            viewModel.loadTickets(userId)
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DS_Bg)
+            .background(colors.bg)
     ) {
         // Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(DS_Surface)
+                .background(colors.surface)
                 .padding(start = 16.dp, end = 16.dp, top = 50.dp, bottom = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -71,7 +61,7 @@ fun PassengerNotificacoesScreen(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(DS_Bg)
+                    .background(colors.bg)
                     .clickable { onNavigateBack() },
                 contentAlignment = Alignment.Center
             ) {
@@ -79,7 +69,7 @@ fun PassengerNotificacoesScreen(
                     text = "←",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    color = DS_Text1
+                    color = colors.text1
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
@@ -87,66 +77,119 @@ fun PassengerNotificacoesScreen(
                 text = "Notificações",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = DS_Text1
+                color = colors.text1
             )
         }
-        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(DS_Border))
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(colors.border))
 
-        // Body
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(vertical = 16.dp)
-        ) {
-            items(NOTIFICATIONS_LIST) { item ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(DS_Surface)
-                        .border(1.dp, DS_Border, RoundedCornerShape(14.dp))
-                        .padding(16.dp)
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.Top
+        // Body com UiState
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            when (val currentState = notificationsState) {
+                is UiState.Loading -> {
+                    LoadingStateView(message = "Atualizando notificações...")
+                }
+                is UiState.Error -> {
+                    ErrorStateView(
+                        message = currentState.message,
+                        onRetry = { viewModel.loadTickets(userId) }
+                    )
+                }
+                is UiState.Success -> {
+                    val notifications = currentState.data
+
+                    if (notifications.isEmpty()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
                         ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .clip(CircleShape)
+                                    .background(colors.primaryLight),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("🔔", fontSize = 28.sp)
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = item.title,
-                                fontSize = 15.sp,
+                                text = "Nenhuma notificação",
+                                fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = DS_Text1,
-                                modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                color = colors.text1
                             )
-                            if (item.isNew) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Você não possui notificações pendentes no momento. Avisos sobre embarque e bagagens aparecerão aqui.",
+                                fontSize = 13.sp,
+                                color = colors.text2,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 18.sp
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp),
+                            contentPadding = PaddingValues(vertical = 16.dp)
+                        ) {
+                            items(notifications) { item ->
                                 Box(
                                     modifier = Modifier
-                                        .size(8.dp)
-                                        .clip(CircleShape)
-                                        .background(DS_Primary)
-                                )
+                                        .fillMaxWidth()
+                                        .padding(bottom = 12.dp)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(colors.surface)
+                                        .border(1.dp, colors.border, RoundedCornerShape(14.dp))
+                                        .padding(16.dp)
+                                ) {
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.Top
+                                        ) {
+                                            Text(
+                                                text = item.title,
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = colors.text1,
+                                                modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                            )
+                                            if (item.isNew) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(8.dp)
+                                                        .clip(CircleShape)
+                                                        .background(colors.primary)
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = item.desc,
+                                            fontSize = 13.sp,
+                                            color = colors.text2,
+                                            lineHeight = 18.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                        Text(
+                                            text = item.meta,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = colors.text3
+                                        )
+                                    }
+                                }
                             }
                         }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = item.desc,
-                            fontSize = 13.sp,
-                            color = DS_Text2,
-                            lineHeight = 18.sp
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            text = item.time,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = DS_Text3
-                        )
                     }
                 }
+                else -> {}
             }
         }
     }

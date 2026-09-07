@@ -32,6 +32,7 @@ fun BottomNavDriver(
     onHome: () -> Unit = {},
     onTrips: () -> Unit = {},
     onBaggages: () -> Unit = {},
+    onConta: () -> Unit = {},
     onPassengerMode: () -> Unit = {}
 ) {
     val colors = LocalIntegraColors.current
@@ -45,27 +46,33 @@ fun BottomNavDriver(
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.clickable { onHome() }.padding(horizontal = 12.dp, vertical = 4.dp)
+            modifier = Modifier.clickable { onHome() }.padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
             Text("Início", color = colors.primary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.clickable { onTrips() }.padding(horizontal = 12.dp, vertical = 4.dp)
+            modifier = Modifier.clickable { onTrips() }.padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
             Text("Passageiros", color = colors.text3, fontSize = 11.sp, fontWeight = FontWeight.Medium)
         }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.clickable { onBaggages() }.padding(horizontal = 12.dp, vertical = 4.dp)
+            modifier = Modifier.clickable { onBaggages() }.padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
             Text("Bagagens", color = colors.text3, fontSize = 11.sp, fontWeight = FontWeight.Medium)
         }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.clickable { onPassengerMode() }.padding(horizontal = 12.dp, vertical = 4.dp)
+            modifier = Modifier.clickable { onConta() }.padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
-            Text("Modo Passageiro", color = colors.text3, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+            Text("Conta", color = colors.text3, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+        }
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.clickable { onPassengerMode() }.padding(horizontal = 10.dp, vertical = 4.dp)
+        ) {
+            Text("Passageiro", color = colors.text3, fontSize = 11.sp, fontWeight = FontWeight.Medium)
         }
     }
 }
@@ -80,6 +87,7 @@ fun DriverHomeScreen(
     onBaggageList: () -> Unit,
     onHistory: () -> Unit,
     onDesembarque: () -> Unit = {},
+    onConta: () -> Unit = {},
     onPassengerMode: () -> Unit = {}
 ) {
     val colors = LocalIntegraColors.current
@@ -92,6 +100,7 @@ fun DriverHomeScreen(
                 onHome = {},
                 onTrips = onPassengerList,
                 onBaggages = onBaggageList,
+                onConta = onConta,
                 onPassengerMode = onPassengerMode
             )
         }
