@@ -124,13 +124,32 @@ fun PassengerContaScreen(
     onNavigateToNotificacoes: () -> Unit = {},
     onNavigateToAjuda: () -> Unit = {},
     onNavigateToHistorico: () -> Unit = {},
-    onNavigateToDriver: () -> Unit = {},
     onLogout: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalIntegraColors.current
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
+
+    val sessionManager = remember { SessionManager.getInstance(context) }
+    val userProfile by sessionManager.userProfileFlow.collectAsState(initial = null)
+
+    val displayName = remember(userProfile?.userName) {
+        val name = userProfile?.userName?.trim()
+        if (!name.isNullOrBlank()) name else "Usuário ÍNTEGRA"
+    }
+    val displayEmail = remember(userProfile?.userEmail) {
+        val email = userProfile?.userEmail?.trim()
+        if (!email.isNullOrBlank()) email else "usuario@integra.clickbus.com"
+    }
+    val avatarInitials = remember(displayName) {
+        val parts = displayName.split("\\s+".toRegex()).filter { it.isNotBlank() }
+        when {
+            parts.size >= 2 -> "${parts[0].first().uppercaseChar()}${parts[1].first().uppercaseChar()}"
+            parts.size == 1 && parts[0].isNotEmpty() -> parts[0].take(2).uppercase()
+            else -> "UI"
+        }
+    }
 
     // Modais e Diálogos
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -172,7 +191,7 @@ fun PassengerContaScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "GS",
+                    text = avatarInitials,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = colors.primary
@@ -181,14 +200,14 @@ fun PassengerContaScreen(
             Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Guilherme Santos",
+                    text = displayName,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = colors.text1,
                     letterSpacing = (-0.4).sp
                 )
                 Text(
-                    text = "CPF ***.***.***-42 · Passageiro",
+                    text = "$displayEmail · Passageiro",
                     fontSize = 13.sp,
                     color = colors.text2,
                     modifier = Modifier.padding(top = 2.dp)
@@ -430,11 +449,11 @@ fun PassengerContaScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 listOf(
-                    Pair("Nome Completo", "Guilherme Santos"),
-                    Pair("CPF", "342.891.042-42"),
-                    Pair("E-mail", "guilherme.santos@email.com"),
+                    Pair("Nome Completo", displayName),
+                    Pair("Identificação", userProfile?.userId?.takeIf { it.isNotBlank() } ?: "USR-CLIENTE"),
+                    Pair("E-mail", displayEmail),
                     Pair("Telefone", "(11) 98765-4321"),
-                    Pair("Perfil", "Passageiro Verificado")
+                    Pair("Perfil", if (userProfile?.roles?.isDriver == true) "Motorista ÍNTEGRA" else "Passageiro Verificado")
                 ).forEach { (label, value) ->
                     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                         Text(label, fontSize = 11.sp, color = colors.text3, fontWeight = FontWeight.SemiBold)

@@ -35,8 +35,7 @@ fun BottomNavDriver(
     onHome: () -> Unit = {},
     onTrips: () -> Unit = {},
     onBaggages: () -> Unit = {},
-    onConta: () -> Unit = {},
-    onPassengerMode: () -> Unit = {}
+    onConta: () -> Unit = {}
 ) {
     val colors = LocalIntegraColors.current
     Row(
@@ -71,12 +70,6 @@ fun BottomNavDriver(
         ) {
             Text("Conta", color = colors.text3, fontSize = 11.sp, fontWeight = FontWeight.Medium)
         }
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.clickable { onPassengerMode() }.padding(horizontal = 10.dp, vertical = 4.dp)
-        ) {
-            Text("Passageiro", color = colors.text3, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-        }
     }
 }
 
@@ -90,8 +83,7 @@ fun DriverHomeScreen(
     onBaggageList: () -> Unit,
     onHistory: () -> Unit,
     onDesembarque: () -> Unit = {},
-    onConta: () -> Unit = {},
-    onPassengerMode: () -> Unit = {}
+    onConta: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val actualViewModel = viewModel ?: remember {
@@ -111,8 +103,7 @@ fun DriverHomeScreen(
                 onHome = {},
                 onTrips = onPassengerList,
                 onBaggages = onBaggageList,
-                onConta = onConta,
-                onPassengerMode = onPassengerMode
+                onConta = onConta
             )
         }
     ) { paddingValues ->
@@ -129,29 +120,13 @@ fun DriverHomeScreen(
                     .background(colors.surface)
                     .padding(start = 20.dp, end = 20.dp, top = 52.dp, bottom = 20.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "MODO MOTORISTA",
-                        color = colors.text3,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 0.8.sp
-                    )
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(colors.primaryLight)
-                            .border(1.dp, colors.primaryMid, RoundedCornerShape(8.dp))
-                            .clickable { onPassengerMode() }
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                    ) {
-                        Text("Ver Passageiro", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = colors.primary)
-                    }
-                }
+                Text(
+                    text = "MODO MOTORISTA",
+                    color = colors.text3,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 0.8.sp
+                )
                 Text(
                     text = "Operação de Embarque",
                     color = colors.text1,

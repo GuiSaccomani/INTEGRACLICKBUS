@@ -132,7 +132,6 @@ fun AppNavigation() {
                 onNavigateToNotificacoes = { navController.navigate("passenger_notificacoes") },
                 onNavigateToAjuda = { navController.navigate("passenger_ajuda") },
                 onNavigateToHistorico = { navController.navigate("passenger_historico") },
-                onNavigateToDriver = { navController.navigate("driver_home") },
                 onLogout = {
                     navController.navigate("welcome") {
                         popUpTo(0) { inclusive = true }
@@ -255,8 +254,7 @@ fun AppNavigation() {
                 onBaggageList = { navController.navigate("driver_baggage_list") },
                 onHistory = { navController.navigate("driver_history") },
                 onDesembarque = { navController.navigate("driver_desembarque") },
-                onConta = { navController.navigate("driver_conta") },
-                onPassengerMode = { navController.navigate("passenger_home") { popUpTo(0) } }
+                onConta = { navController.navigate("driver_conta") }
             )
         }
         composable("driver_passenger_list") {
@@ -298,7 +296,6 @@ fun AppNavigation() {
         composable("driver_conta") {
             DriverContaScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToPassengerMode = { navController.navigate("passenger_home") { popUpTo(0) } },
                 onLogout = {
                     navController.navigate("welcome") {
                         popUpTo(0) { inclusive = true }

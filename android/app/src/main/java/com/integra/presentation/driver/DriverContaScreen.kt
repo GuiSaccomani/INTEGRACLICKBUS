@@ -28,7 +28,6 @@ import kotlinx.coroutines.launch
 @Composable
 fun DriverContaScreen(
     onNavigateBack: () -> Unit,
-    onNavigateToPassengerMode: () -> Unit,
     onLogout: () -> Unit
 ) {
     val colors = LocalIntegraColors.current
@@ -240,26 +239,6 @@ fun DriverContaScreen(
             Spacer(modifier = Modifier.height(30.dp))
 
             // Ações
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .clip(RoundedCornerShape(100.dp))
-                    .background(colors.primaryLight)
-                    .border(1.dp, colors.primaryMid, RoundedCornerShape(100.dp))
-                    .clickable { onNavigateToPassengerMode() },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Alternar para Modo Passageiro",
-                    color = colors.primary,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
             Box(
                 modifier = Modifier
                     .fillMaxWidth()

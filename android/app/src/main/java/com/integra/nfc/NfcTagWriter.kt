@@ -141,7 +141,16 @@ class NfcTagWriter(private val activity: Activity) : NfcAdapter.ReaderCallback {
                 Log.i(TAG, "Tag física limpa com sucesso.")
                 notifySuccess()
             } else {
-                notifyError("Tag não compatível com limpeza NDEF.")
+                val formatable = NdefFormatable.get(tag)
+                if (formatable != null) {
+                    formatable.connect()
+                    formatable.format(emptyMessage)
+                    formatable.close()
+                    Log.i(TAG, "Tag física formatada vazia e limpa com sucesso.")
+                    notifySuccess()
+                } else {
+                    notifyError("Tag não compatível com limpeza NDEF.")
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Falha ao limpar a tag física", e)

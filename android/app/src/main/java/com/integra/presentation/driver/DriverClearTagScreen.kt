@@ -1,5 +1,6 @@
 package com.integra.presentation.driver
 
+import android.app.Activity
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -15,24 +16,46 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
+import com.integra.nfc.NfcTagWriter
 import com.integra.ui.theme.*
 
 @Composable
 fun DriverClearTagScreen(
     onNavigateBack: () -> Unit
 ) {
+    val context = LocalContext.current
+    val activity = context as? Activity
+    val nfcTagWriter = remember(activity) { activity?.let { NfcTagWriter(it) } }
+
     var phase by remember { mutableStateOf("waiting") }
     var showConfirm by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(phase) {
+    DisposableEffect(phase) {
         if (phase == "reading") {
-            delay(2000)
-            phase = "success" // Assume success for flow
+            val writer = nfcTagWriter
+            if (writer != null) {
+                writer.startClearSession(
+                    onSuccess = {
+                        phase = "success"
+                    },
+                    onError = { err ->
+                        errorMessage = err
+                        phase = "error"
+                    }
+                )
+            } else {
+                errorMessage = "NFC desativado ou indisponível neste aparelho."
+                phase = "error"
+            }
+        }
+        onDispose {
+            nfcTagWriter?.stopSession()
         }
     }
 
@@ -54,7 +77,7 @@ fun DriverClearTagScreen(
         "waiting" -> "Aproxime o celular da tag da bagagem retirada."
         "reading" -> "Limpando informações..."
         "success" -> "Esta tag está pronta para ser reutilizada."
-        else -> "Tente aproximar o celular novamente."
+        else -> errorMessage ?: "Tente aproximar o celular novamente."
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -174,14 +197,20 @@ fun DriverClearTagScreen(
                 }
 
                 if (phase == "error") {
-                    Box(modifier = Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(16.dp)).background(DS_Primary).clickable { phase = "waiting" }, contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(16.dp)).background(DS_Primary).clickable {
+                        errorMessage = null
+                        phase = "waiting"
+                    }, contentAlignment = Alignment.Center) {
                         Text("Tentar novamente", color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
 
                 if (phase == "success") {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        Box(modifier = Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(16.dp)).background(DS_PrimaryLight).border(2.dp, DS_PrimaryMid, RoundedCornerShape(16.dp)).clickable { phase = "waiting" }, contentAlignment = Alignment.Center) {
+                        Box(modifier = Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(16.dp)).background(DS_PrimaryLight).border(2.dp, DS_PrimaryMid, RoundedCornerShape(16.dp)).clickable {
+                            errorMessage = null
+                            phase = "waiting"
+                        }, contentAlignment = Alignment.Center) {
                             Text("Limpar outra tag", color = DS_Primary, fontWeight = FontWeight.Bold)
                         }
                         Box(modifier = Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(16.dp)).background(Color.Transparent).clickable { onNavigateBack() }, contentAlignment = Alignment.Center) {
@@ -217,7 +246,11 @@ fun DriverClearTagScreen(
                     Text("Todos os dados vinculados a esta bagagem serão permanentemente removidos. Deseja continuar?", fontSize = 15.sp, color = DS_Text2, textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 32.dp))
                     
                     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(modifier = Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(16.dp)).background(DS_Primary).clickable { showConfirm = false; phase = "reading" }, contentAlignment = Alignment.Center) {
+                        Box(modifier = Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(16.dp)).background(DS_Primary).clickable {
+                            showConfirm = false
+                            errorMessage = null
+                            phase = "reading"
+                        }, contentAlignment = Alignment.Center) {
                             Text("Sim, limpar tag", color = Color.White, fontWeight = FontWeight.Bold)
                         }
                         Box(modifier = Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(16.dp)).background(Color.Transparent).clickable { showConfirm = false }, contentAlignment = Alignment.Center) {
