@@ -241,6 +241,32 @@ class TicketRepository {
     };
   }
 
+  /**
+   * Reseta passagens para não-utilizadas (TICKET_USED = 0) para permitir novos testes/gravação.
+   * @param {string} [userId]
+   * @returns {Promise<number>}
+   */
+  async resetAllTicketsToUnused(userId = null) {
+    let sql = `UPDATE TICKETS SET TICKET_USED = 0 WHERE TICKET_SOLD = 1`;
+    let binds = {};
+
+    if (userId) {
+      const { hex } = rawHelper.normalizeRaw16(userId);
+      sql = `
+        UPDATE TICKETS
+        SET TICKET_USED = 0
+        WHERE TICKET_SOLD = 1
+          AND TICKET_ID IN (
+            SELECT UT_TICKET FROM USERS_TICKETS WHERE UT_USER = HEXTORAW(:userId)
+          )
+      `;
+      binds = { userId: hex };
+    }
+
+    const result = await db.execute(sql, binds, { autoCommit: true });
+    return result.rowsAffected || 0;
+  }
+
   _mapTicket(row) {
     return {
       ticketId: row.TICKET_ID,

@@ -85,6 +85,16 @@ class PassengerController {
       next(error);
     }
   }
+
+  async resetDemoTickets(req, res, next) {
+    try {
+      const { userId } = req.body || {};
+      const result = await passengerService.resetDemoTickets(userId);
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new PassengerController();

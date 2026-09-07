@@ -32,7 +32,8 @@ export function RegistrarBagemScreen() {
         if (userId) {
           const tickets = await passengerApi.getUserTickets(userId).catch(() => []);
           if (tickets.length > 0) {
-            setTicketData(tickets[0]);
+            const active = tickets.find(t => t.used !== 1) || tickets[0];
+            setTicketData(active);
           }
         }
       } catch (err) {

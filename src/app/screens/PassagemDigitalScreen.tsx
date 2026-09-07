@@ -41,7 +41,8 @@ export function PassagemDigitalScreen() {
         if (userId) {
           const userTickets = await passengerApi.getUserTickets(userId).catch(() => []);
           if (userTickets.length > 0) {
-            setTicketData(userTickets[0]);
+            const active = userTickets.find(t => t.used !== 1) || userTickets[0];
+            setTicketData(active);
             setLoading(false);
             return;
           }

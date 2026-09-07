@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import { useDS, Screen, StatusBadge, LogoMark, OperatorHeader, Fonts } from "../components/MobileLayout";
@@ -15,38 +15,53 @@ export function HomeScreen() {
   const [tickets, setTickets] = useState<TicketDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [resetting, setResetting] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
 
   const firstName = getStoredFirstName();
 
-  useEffect(() => {
-    let active = true;
-
-    async function loadTickets() {
-      const userId = getStoredUserId();
-      if (!userId) {
-        if (active) {
-          setLoading(false);
-          setLoadError("Sessão não encontrada. Entre novamente para ver suas viagens.");
-        }
-        return;
-      }
-
-      try {
-        const result = await passengerApi.getUserTickets(userId);
-        if (active) setTickets(Array.isArray(result) ? result : []);
-      } catch (err: any) {
-        if (active) setLoadError(err?.message || "Não foi possível carregar suas viagens.");
-      } finally {
-        if (active) setLoading(false);
-      }
+  const fetchTickets = useCallback(async () => {
+    const userId = getStoredUserId();
+    if (!userId) {
+      setLoading(false);
+      setLoadError("Sessão não encontrada. Entre novamente para ver suas viagens.");
+      return;
     }
 
-    loadTickets();
-    return () => { active = false; };
+    try {
+      setLoading(true);
+      setLoadError("");
+      const result = await passengerApi.getUserTickets(userId);
+      setTickets(Array.isArray(result) ? result : []);
+    } catch (err: any) {
+      setLoadError(err?.message || "Não foi possível carregar suas viagens.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    fetchTickets();
+  }, [fetchTickets]);
+
+  const handleResetDemo = async () => {
+    try {
+      setResetting(true);
+      const userId = getStoredUserId() || undefined;
+      await passengerApi.resetDemoTickets(userId);
+      setResetSuccess(true);
+      setTimeout(() => setResetSuccess(false), 3500);
+      await fetchTickets();
+    } catch (err: any) {
+      alert("Erro ao restaurar passagens: " + (err?.message || "falha na comunicação"));
+    } finally {
+      setResetting(false);
+    }
+  };
+
   // Próxima viagem: primeira passagem ainda não utilizada; histórico: as já embarcadas
-  const nextTrip = tickets.find(t => t.used !== 1) || null;
+  const activeTrips = tickets.filter(t => t.used !== 1);
+  const nextTrip = activeTrips[0] || null;
   const pastTrips = tickets.filter(t => t.used === 1);
   const HAS_TRIPS = Boolean(nextTrip);
 
@@ -128,11 +143,41 @@ export function HomeScreen() {
           <>
             {/* Label + badge */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: DS.text3, letterSpacing: "0.6px", textTransform: "uppercase" }}>
-            Próxima viagem
-          </p>
-          {status && <StatusBadge label={status.label} kind={status.kind} />}
-        </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: DS.text3, letterSpacing: "0.6px", textTransform: "uppercase" }}>
+                  Próxima viagem
+                </p>
+                {activeTrips.length > 1 && (
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, color: DS.primary,
+                    background: DS.primaryLight, padding: "2px 8px", borderRadius: 100
+                  }}>
+                    {activeTrips.length} DISPONÍVEIS
+                  </span>
+                )}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {status && <StatusBadge label={status.label} kind={status.kind} />}
+                <button
+                  onClick={handleResetDemo}
+                  disabled={resetting}
+                  title="Restaurar status de todas as viagens para gravar ou testar de novo"
+                  style={{
+                    background: "none", border: `1px solid ${DS.border}`, borderRadius: 6,
+                    padding: "3px 7px", cursor: resetting ? "not-allowed" : "pointer",
+                    display: "flex", alignItems: "center", gap: 4,
+                    fontSize: 11, fontWeight: 600, color: resetSuccess ? DS.success : DS.text2,
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                    <path d="M3 3v5h5" />
+                  </svg>
+                  {resetting ? "..." : resetSuccess ? "Restaurado!" : "Reset"}
+                </button>
+              </div>
+            </div>
 
         {/* Cartão expandível */}
         <div
@@ -336,7 +381,7 @@ export function HomeScreen() {
         </>) : (
           <div style={{
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            background: DS.surface, borderRadius: 12, border: `1px solid ${DS.border}`, padding: "40px 20px",
+            background: DS.surface, borderRadius: 12, border: `1px solid ${DS.border}`, padding: "36px 20px",
             marginBottom: 20, textAlign: "center"
           }}>
             <div style={{ marginBottom: 16 }}>
@@ -347,16 +392,36 @@ export function HomeScreen() {
             <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: DS.text1, fontFamily: Fonts.heading }}>
               {loadError ? "Não foi possível carregar" : "Nenhuma viagem futura"}
             </p>
-            <p style={{ margin: "8px 0 20px", fontSize: 13, color: DS.text2, lineHeight: 1.4 }}>
-              {loadError || "Você ainda não tem nenhuma passagem agendada com esta operadora."}
+            <p style={{ margin: "8px 0 20px", fontSize: 13, color: DS.text2, lineHeight: 1.4, maxWidth: 300 }}>
+              {loadError || "Todas as viagens agendadas foram utilizadas ou você não possui passagens ativas no momento."}
             </p>
-            <button style={{
-              height: 44, padding: "0 20px", borderRadius: 100, border: "none",
-              background: `linear-gradient(135deg, ${DS.primaryDark}, ${DS.primary})`,
-              color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer",
-            }}>
-              Comprar Passagem
-            </button>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 280 }}>
+              <button
+                onClick={handleResetDemo}
+                disabled={resetting}
+                style={{
+                  height: 44, padding: "0 18px", borderRadius: 100,
+                  border: `1px solid ${DS.primary}`,
+                  background: DS.primaryLight,
+                  color: DS.primary, fontSize: 13, fontWeight: 700,
+                  cursor: resetting ? "not-allowed" : "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path d="M3 3v5h5" />
+                </svg>
+                {resetting ? "Restaurando passagens..." : resetSuccess ? "Passagens Restauradas!" : "Restaurar Passagens (Demo/Gravação)"}
+              </button>
+              <button style={{
+                height: 44, padding: "0 20px", borderRadius: 100, border: "none",
+                background: `linear-gradient(135deg, ${DS.primaryDark}, ${DS.primary})`,
+                color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
+              }}>
+                Comprar Passagem
+              </button>
+            </div>
           </div>
         )}
 

@@ -21,4 +21,7 @@ router.post('/credential/validate', passengerController.validateCredential);
 // Retrocompatibilidade para validação NFC existente
 router.post('/nfc/scan', passengerController.scanAndValidate);
 
+// Resetar status de uso dos bilhetes de teste/gravação para não utilizados (TICKET_USED = 0)
+router.post('/reset-tickets', passengerController.resetDemoTickets);
+
 module.exports = router;

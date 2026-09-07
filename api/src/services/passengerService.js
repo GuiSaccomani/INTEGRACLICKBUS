@@ -197,6 +197,19 @@ class PassengerService {
     // Executa a validação atômica utilizando o ID do bilhete localizado
     return this.validateTicket(ticket.ticketId, driverId);
   }
+
+  /**
+   * Reseta todas as passagens para não utilizadas (used = 0) para permitir novas gravações e testes.
+   * @param {string} [userId]
+   * @returns {Promise<object>}
+   */
+  async resetDemoTickets(userId = null) {
+    const affected = await ticketRepository.resetAllTicketsToUnused(userId);
+    return {
+      message: 'Passagens de demonstração restauradas com sucesso!',
+      resetCount: affected,
+    };
+  }
 }
 
 module.exports = new PassengerService();

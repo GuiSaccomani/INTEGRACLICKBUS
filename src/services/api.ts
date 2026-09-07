@@ -236,6 +236,14 @@ export const passengerApi = {
       body: JSON.stringify({ ticketId }),
     });
   },
+
+  // Restaura status de passagens para demonstração e gravações (TICKET_USED = 0)
+  resetDemoTickets: async (userId?: string): Promise<{ message: string; resetCount: number }> => {
+    return request('/passenger/reset-tickets', {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    });
+  },
 };
 
 // ─── DRIVER & TRIPS ──────────────────────────────────────────────────────────
