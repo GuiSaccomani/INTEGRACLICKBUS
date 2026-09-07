@@ -24,11 +24,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.integra.data.local.SessionManager
+import com.integra.data.repository.AuthRepository
 import com.integra.ui.theme.*
+import kotlinx.coroutines.launch
 
 @Composable
 fun LogoMarkSmall() {
@@ -45,10 +49,19 @@ fun LogoMarkSmall() {
 @Composable
 fun RegisterScreen(
     onNavigateBack: () -> Unit,
-    onNavigateToLogin: () -> Unit
+    onNavigateToLogin: () -> Unit,
+    onNavigateToHome: () -> Unit = onNavigateToLogin
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val authRepository = remember {
+        AuthRepository(sessionManager = SessionManager.getInstance(context))
+    }
+
     var step by remember { mutableIntStateOf(1) }
     var success by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
+    var isAuthenticated by remember { mutableStateOf(false) }
 
     var nome by remember { mutableStateOf("") }
     var cpf by remember { mutableStateOf("") }
@@ -78,7 +91,7 @@ fun RegisterScreen(
                     .shadow(40.dp, spotColor = Color(0xFF059669).copy(alpha = 0.35f)),
                 contentAlignment = Alignment.Center
             ) {
-                // Success icon
+                Text("✓", color = Color.White, fontSize = 44.sp, fontWeight = FontWeight.Bold)
             }
             Text(
                 text = "Conta criada!",
@@ -89,7 +102,11 @@ fun RegisterScreen(
                 modifier = Modifier.padding(top = 28.dp, bottom = 8.dp)
             )
             Text(
-                text = "Bem-vindo, ${nome.split(" ").firstOrNull() ?: ""}! Sua conta foi criada com sucesso.",
+                text = if (isAuthenticated) {
+                    "Bem-vindo, ${nome.split(" ").firstOrNull() ?: ""}! Sua conta foi criada e você já está conectado."
+                } else {
+                    "Bem-vindo, ${nome.split(" ").firstOrNull() ?: ""}! Sua conta foi criada com sucesso."
+                },
                 fontSize = 15.sp,
                 color = DS_Text2,
                 lineHeight = 22.sp,
@@ -103,10 +120,21 @@ fun RegisterScreen(
                     .shadow(20.dp, RoundedCornerShape(18.dp), spotColor = DS_Primary.copy(alpha = 0.22f))
                     .clip(RoundedCornerShape(18.dp))
                     .background(Brush.linearGradient(colors = listOf(DS_PrimaryDark, DS_Primary)))
-                    .clickable { onNavigateToLogin() },
+                    .clickable { 
+                        if (isAuthenticated) {
+                            onNavigateToHome()
+                        } else {
+                            onNavigateToLogin()
+                        }
+                    },
                 contentAlignment = Alignment.Center
             ) {
-                Text("Fazer login", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = if (isAuthenticated) "Acessar o aplicativo" else "Fazer login",
+                    color = Color.White,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
         return
@@ -130,7 +158,7 @@ fun RegisterScreen(
                     .clip(RoundedCornerShape(12.dp))
                     .background(DS_Surface)
                     .border(1.5.dp, DS_BorderMd, RoundedCornerShape(12.dp))
-                    .clickable {
+                    .clickable(enabled = !isLoading) {
                         if (step == 2) step = 1 else onNavigateBack()
                     },
                 contentAlignment = Alignment.Center
@@ -181,20 +209,50 @@ fun RegisterScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(58.dp)
-                    .shadow(20.dp, RoundedCornerShape(18.dp), spotColor = DS_Primary.copy(alpha = 0.22f))
+                    .shadow(
+                        elevation = if (isLoading) 0.dp else 20.dp,
+                        shape = RoundedCornerShape(18.dp),
+                        spotColor = DS_Primary.copy(alpha = 0.22f)
+                    )
                     .clip(RoundedCornerShape(18.dp))
-                    .background(Brush.linearGradient(colors = listOf(DS_PrimaryDark, DS_Primary)))
-                    .clickable { 
-                        if (step == 1) step = 2 else success = true 
+                    .background(
+                        if (isLoading) SolidColor(DS_PrimaryMid)
+                        else Brush.linearGradient(colors = listOf(DS_PrimaryDark, DS_Primary))
+                    )
+                    .clickable(enabled = !isLoading) { 
+                        if (step == 1) {
+                            step = 2
+                        } else {
+                            isLoading = true
+                            coroutineScope.launch {
+                                val result = authRepository.login(email.trim(), senha)
+                                isAuthenticated = result.isSuccess
+                                isLoading = false
+                                success = true
+                            }
+                        }
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Text(if (step == 1) "Continuar" else "Criar conta", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 3.dp
+                    )
+                } else {
+                    Text(
+                        text = if (step == 1) "Continuar" else "Criar conta",
+                        color = Color.White,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
             if (step == 1) {
                 Row(modifier = Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.Center) {
                     Text("Já tem conta? ", color = DS_Text3, fontSize = 12.sp)
-                    Text("Entrar", color = DS_Primary, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onNavigateToLogin() })
+                    Text("Entrar", color = DS_Primary, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(enabled = !isLoading) { onNavigateToLogin() })
                 }
             }
         }

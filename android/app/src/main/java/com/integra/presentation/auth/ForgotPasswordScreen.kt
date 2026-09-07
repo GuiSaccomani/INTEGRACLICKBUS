@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,11 +24,17 @@ import com.integra.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+private fun isValidEmail(email: String): Boolean {
+    val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$".toRegex()
+    return email.isNotBlank() && emailRegex.matches(email.trim())
+}
+
 @Composable
 fun ForgotPasswordScreen(
     onNavigateBack: () -> Unit
 ) {
     var email by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var success by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
@@ -60,7 +67,7 @@ fun ForgotPasswordScreen(
                 modifier = Modifier.padding(top = 28.dp, bottom = 8.dp)
             )
             Text(
-                text = "Enviamos as instruções de recuperação para o e-mail informado.",
+                text = "Se esse e-mail estiver cadastrado, enviaremos as instruções para a recuperação da sua senha.",
                 fontSize = 15.sp,
                 color = DS_Text2,
                 lineHeight = 22.sp,
@@ -101,7 +108,7 @@ fun ForgotPasswordScreen(
                     .clip(RoundedCornerShape(12.dp))
                     .background(DS_Surface)
                     .border(1.5.dp, DS_BorderMd, RoundedCornerShape(12.dp))
-                    .clickable { onNavigateBack() },
+                    .clickable(enabled = !isLoading) { onNavigateBack() },
                 contentAlignment = Alignment.Center
             ) {
                 Text("<", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = DS_Text1)
@@ -134,8 +141,33 @@ fun ForgotPasswordScreen(
                 label = "E-mail",
                 placeholder = "guilherme@email.com",
                 value = email,
-                onValueChange = { email = it }
+                onValueChange = { 
+                    email = it
+                    if (errorMessage != null) {
+                        errorMessage = null
+                    }
+                }
             )
+
+            // Mensagem de Erro Inline
+            AnimatedVisibility(visible = errorMessage != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFFEE2E2))
+                        .border(1.dp, DS_Error, RoundedCornerShape(12.dp))
+                        .padding(14.dp)
+                ) {
+                    Text(
+                        text = errorMessage ?: "",
+                        color = DS_Error,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.weight(1f))
 
@@ -155,10 +187,20 @@ fun ForgotPasswordScreen(
                         if (isLoading) SolidColor(DS_PrimaryMid)
                         else Brush.linearGradient(colors = listOf(DS_PrimaryDark, DS_Primary))
                     )
-                    .clickable(enabled = !isLoading && email.isNotBlank()) {
+                    .clickable(enabled = !isLoading) {
+                        val trimmed = email.trim()
+                        if (trimmed.isEmpty()) {
+                            errorMessage = "Por favor, informe seu e-mail cadastrado."
+                            return@clickable
+                        }
+                        if (!isValidEmail(trimmed)) {
+                            errorMessage = "Por favor, informe um endereço de e-mail válido."
+                            return@clickable
+                        }
+                        errorMessage = null
                         isLoading = true
                         coroutineScope.launch {
-                            delay(1200)
+                            delay(1000)
                             isLoading = false
                             success = true
                         }
@@ -166,11 +208,10 @@ fun ForgotPasswordScreen(
                 contentAlignment = Alignment.Center
             ) {
                 if (isLoading) {
-                    Text(
-                        text = "Enviando...",
+                    CircularProgressIndicator(
                         color = Color.White,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 3.dp
                     )
                 } else {
                     Text(

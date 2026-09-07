@@ -8,14 +8,14 @@ import com.integra.data.network.RetrofitClient
 
 class AuthRepository(
     private val apiService: ApiService = RetrofitClient.getApiService(),
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager? = null
 ) {
     suspend fun login(email: String, pass: String): Result<UserProfileDto> {
         return try {
             val response = apiService.login(LoginRequest(email.trim(), pass))
             if (response.isSuccessful && response.body() != null) {
                 val user = response.body()!!.user
-                sessionManager.saveUserSession(user)
+                sessionManager?.saveUserSession(user)
                 Result.success(user)
             } else {
                 val msg = RetrofitClient.parseErrorMessage(response)
@@ -27,6 +27,6 @@ class AuthRepository(
     }
 
     suspend fun logout() {
-        sessionManager.clearSession()
+        sessionManager?.clearSession()
     }
 }

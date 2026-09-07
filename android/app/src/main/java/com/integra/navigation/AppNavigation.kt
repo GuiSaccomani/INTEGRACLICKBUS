@@ -45,6 +45,11 @@ fun AppNavigation() {
                     navController.navigate("login") {
                         popUpTo("welcome")
                     }
+                },
+                onNavigateToHome = {
+                    navController.navigate("passenger_home") {
+                        popUpTo(0)
+                    }
                 }
             )
         }
