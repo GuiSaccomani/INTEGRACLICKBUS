@@ -124,6 +124,33 @@ class LuggageService {
 
     return true;
   }
+
+  /**
+   * Retorna todas as bagagens associadas a todas as passagens de um usuário
+   * @param {string} userId 
+   */
+  async getByUser(userId) {
+    if (!userId) {
+      const error = new Error('Identificador do usuário é obrigatório.');
+      error.status = 400;
+      throw error;
+    }
+    return await luggageRepository.findByUserId(userId);
+  }
+
+  /**
+   * Remove todas as bagagens de uma viagem para limpeza em lote pelo motorista
+   * @param {string} tripId 
+   */
+  async removeAllByTrip(tripId) {
+    if (!tripId) {
+      const error = new Error('Identificador da viagem é obrigatório.');
+      error.status = 400;
+      throw error;
+    }
+    const removedCount = await luggageRepository.deleteByTripId(tripId);
+    return { removedCount, message: `${removedCount} bagagem(ns) liberada(s) com sucesso.` };
+  }
 }
 
 module.exports = new LuggageService();

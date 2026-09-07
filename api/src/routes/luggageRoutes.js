@@ -15,4 +15,10 @@ router.get('/:id', luggageController.getById);
 // Remoção segura de bagagem (desembarque e liberação de tag)
 router.delete('/:id', luggageController.remove);
 
+// Consulta de todas as bagagens de um passageiro
+router.get('/user/:userId', luggageController.getByUser);
+
+// Limpeza de todas as bagagens de uma viagem (em lote)
+router.delete('/trip/:tripId', luggageController.removeAllByTrip);
+
 module.exports = router;

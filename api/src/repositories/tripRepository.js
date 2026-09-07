@@ -51,7 +51,7 @@ class TripRepository {
         RAWTOHEX(T.TRIP_DRIVER) AS TRIP_DRIVER
       FROM TRIPS T
       WHERE T.TRIP_DRIVER = HEXTORAW(:driverId)
-      ORDER BY T.TRIP_DATE DESC
+      ORDER BY T.TRIP_DATE ASC
     `;
 
     const result = await db.execute(sql, { driverId: hex });

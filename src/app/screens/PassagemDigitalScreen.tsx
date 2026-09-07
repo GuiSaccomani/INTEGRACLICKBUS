@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate, useLocation } from "react-router";
 import { motion } from "motion/react";
 import { useDS, Screen, BackHeader, StatusBadge, BtnPrimary, BtnGhost } from "../components/MobileLayout";
 import { useA11y } from "../components/AccessibilityContext";
@@ -18,43 +18,60 @@ const TIMELINE_STEPS = [
 export function PassagemDigitalScreen() {
   const DS = useDS();
   const nav = useNavigate();
+  const location = useLocation();
   const { triggerFeedback } = useA11y();
+
   const [flipped, setFlipped] = useState(false);
-  const [ticketData, setTicketData] = useState<TicketDetails | null>(null);
+  const [allTickets, setAllTickets] = useState<TicketDetails[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  const targetTicketId = (location.state as any)?.ticketId;
 
   // Verificação de suporte real ao Web NFC
   const nfcSupport = nfcService.checkSupport();
 
-  useEffect(() => {
-    async function loadTicket() {
-      setLoading(true);
-      try {
-        const savedUser = localStorage.getItem("integra_user");
-        let userId = "";
-        if (savedUser) {
-          try {
-            userId = JSON.parse(savedUser).userId;
-          } catch (_) {}
-        }
-
-        if (userId) {
-          const userTickets = await passengerApi.getUserTickets(userId).catch(() => []);
-          if (userTickets.length > 0) {
-            const active = userTickets.find(t => t.used !== 1) || userTickets[0];
-            setTicketData(active);
-            setLoading(false);
-            return;
-          }
-        }
-      } catch (err: any) {
-        console.warn("Aviso ao carregar bilhete:", err.message);
-      } finally {
-        setLoading(false);
+  const loadTicket = useCallback(async () => {
+    setLoading(true);
+    try {
+      const savedUser = localStorage.getItem("integra_user");
+      let userId = "";
+      if (savedUser) {
+        try {
+          userId = JSON.parse(savedUser).userId;
+        } catch (_) {}
       }
+
+      if (userId) {
+        const userTickets = await passengerApi.getUserTickets(userId).catch(() => []);
+        if (userTickets.length > 0) {
+          setAllTickets(userTickets);
+
+          if (targetTicketId) {
+            const idx = userTickets.findIndex(t => t.ticketId === targetTicketId);
+            if (idx !== -1) {
+              setSelectedIndex(idx);
+              setLoading(false);
+              return;
+            }
+          }
+
+          const activeIdx = userTickets.findIndex(t => t.used !== 1);
+          setSelectedIndex(activeIdx !== -1 ? activeIdx : 0);
+        }
+      }
+    } catch (err: any) {
+      console.warn("Aviso ao carregar bilhete:", err.message);
+    } finally {
+      setLoading(false);
     }
+  }, [targetTicketId]);
+
+  useEffect(() => {
     loadTicket();
-  }, []);
+  }, [loadTicket]);
+
+  const ticketData = allTickets[selectedIndex] || null;
 
   const passengerName = ticketData?.passengerName || "Passageiro";
   const departureCity = ticketData?.departure || "São Paulo";
@@ -81,6 +98,66 @@ export function PassagemDigitalScreen() {
               Credencial protegida · Validação segura no sistema
             </span>
           </div>
+
+          {/* Seletor entre múltiplas passagens */}
+          {allTickets.length > 1 && (
+            <div
+              style={{
+                width: "100%",
+                background: DS.surface,
+                borderRadius: 12,
+                padding: "8px 12px",
+                marginBottom: 14,
+                border: `1px solid ${DS.border}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <button
+                disabled={selectedIndex <= 0}
+                onClick={() => setSelectedIndex((i) => Math.max(0, i - 1))}
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 6,
+                  border: "none",
+                  background: selectedIndex > 0 ? DS.bg : "transparent",
+                  color: selectedIndex > 0 ? DS.primary : DS.text3,
+                  fontWeight: 800,
+                  cursor: selectedIndex > 0 ? "pointer" : "default",
+                }}
+              >
+                ◀
+              </button>
+
+              <div style={{ textAlign: "center", flex: 1, padding: "0 8px" }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: DS.text3, textTransform: "uppercase" }}>
+                  Passagem {selectedIndex + 1} de {allTickets.length}
+                </span>
+                <p style={{ margin: "2px 0 0", fontSize: 12, fontWeight: 800, color: DS.text1 }}>
+                  {departureCity} → {arrivalCity}
+                </p>
+              </div>
+
+              <button
+                disabled={selectedIndex >= allTickets.length - 1}
+                onClick={() => setSelectedIndex((i) => Math.min(allTickets.length - 1, i + 1))}
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 6,
+                  border: "none",
+                  background: selectedIndex < allTickets.length - 1 ? DS.bg : "transparent",
+                  color: selectedIndex < allTickets.length - 1 ? DS.primary : DS.text3,
+                  fontWeight: 800,
+                  cursor: selectedIndex < allTickets.length - 1 ? "pointer" : "default",
+                }}
+              >
+                ▶
+              </button>
+            </div>
+          )}
 
           {/* Seletor em Abas (Passagem vs QR Code) */}
           <div

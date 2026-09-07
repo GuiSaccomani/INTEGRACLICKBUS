@@ -185,6 +185,73 @@ class LuggageRepository {
     return result.rowsAffected || 0;
   }
 
+  /**
+   * Busca todas as bagagens de um usuário específico, trazendo dados da viagem e do ticket
+   * @param {string} userId - Hex RAW(16)
+   * @returns {Promise<Array>}
+   */
+  async findByUserId(userId) {
+    const { hex } = rawHelper.normalizeRaw16(userId);
+
+    const sql = `
+      SELECT 
+        RAWTOHEX(B.BAGGAGE_ID) AS BAGGAGE_ID,
+        RAWTOHEX(B.BAGGAGE_UT_HASH) AS BAGGAGE_UT_HASH,
+        RAWTOHEX(UT.UT_TICKET) AS TICKET_ID,
+        RAWTOHEX(UT.UT_USER) AS USER_ID,
+        U.USER_NAME AS PASSENGER_NAME,
+        TK.TICKET_SEAT,
+        TK.TICKET_USED,
+        TR.TRIP_DEPARTURE,
+        TR.TRIP_ARRIVAL,
+        TR.TRIP_DATE
+      FROM BAGGAGE B
+      JOIN USERS_TICKETS UT ON UT.UT_HASH = B.BAGGAGE_UT_HASH
+      JOIN USERS U ON U.USER_ID = UT.UT_USER
+      JOIN TICKETS TK ON TK.TICKET_ID = UT.UT_TICKET
+      JOIN TRIPS TR ON TR.TRIP_ID = TK.TICKET_TRIP
+      WHERE UT.UT_USER = HEXTORAW(:userId)
+      ORDER BY TR.TRIP_DATE ASC
+    `;
+
+    const result = await db.execute(sql, { userId: hex });
+    if (!result.rows) return [];
+    return result.rows.map(row => ({
+      baggageId: row.BAGGAGE_ID,
+      baggageUtHash: row.BAGGAGE_UT_HASH,
+      ticketId: row.TICKET_ID,
+      userId: row.USER_ID,
+      passengerName: row.PASSENGER_NAME,
+      seat: Number(row.TICKET_SEAT),
+      ticketUsed: Number(row.TICKET_USED),
+      departure: row.TRIP_DEPARTURE,
+      arrival: row.TRIP_ARRIVAL,
+      tripDate: row.TRIP_DATE,
+    }));
+  }
+
+  /**
+   * Remove todas as bagagens vinculadas a uma viagem inteira (para limpeza em lote)
+   * @param {string} tripId - Hex RAW(16)
+   * @returns {Promise<number>}
+   */
+  async deleteByTripId(tripId) {
+    const { hex } = rawHelper.normalizeRaw16(tripId);
+
+    const sql = `
+      DELETE FROM BAGGAGE
+      WHERE BAGGAGE_UT_HASH IN (
+        SELECT UT.UT_HASH
+        FROM USERS_TICKETS UT
+        JOIN TICKETS TK ON TK.TICKET_ID = UT.UT_TICKET
+        WHERE TK.TICKET_TRIP = HEXTORAW(:tripId)
+      )
+    `;
+
+    const result = await db.execute(sql, { tripId: hex }, { autoCommit: true });
+    return result.rowsAffected || 0;
+  }
+
   _mapLuggage(row) {
     return {
       baggageId: row.BAGGAGE_ID,

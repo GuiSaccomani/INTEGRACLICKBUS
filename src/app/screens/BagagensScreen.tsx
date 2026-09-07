@@ -1,10 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { useDS, Screen, BackHeader } from "../components/MobileLayout";
+import { useDS, Screen, BackHeader, StatusBadge, BtnPrimary } from "../components/MobileLayout";
 import { luggageApi, passengerApi, type BaggageItem, type TicketDetails } from "../../services/api";
 import { getStoredUserId } from "../../services/session";
 import { cityOf, shortId } from "../../services/format";
+
+interface UserLuggageItem extends BaggageItem {
+  departure?: string;
+  arrival?: string;
+  seat?: number;
+  ticketUsed?: number;
+  tripDate?: string;
+  ticketId?: string;
+}
 
 function SuitcaseSVG() {
   const DS = useDS();
@@ -27,69 +36,110 @@ export function BagagensScreen() {
   const DS = useDS();
   const nav = useNavigate();
 
-  const [ticket, setTicket] = useState<TicketDetails | null>(null);
-  const [luggages, setLuggages] = useState<BaggageItem[]>([]);
+  const [luggages, setLuggages] = useState<UserLuggageItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-
-    async function loadLuggages() {
-      const userId = getStoredUserId();
-      if (!userId) {
-        if (active) {
-          setLoading(false);
-          setLoadError("Sessão não encontrada. Entre novamente para ver suas bagagens.");
-        }
-        return;
-      }
-
-      try {
-        const tickets = await passengerApi.getUserTickets(userId);
-        const activeTicket = tickets.find(t => t.used !== 1) || tickets[0] || null;
-
-        if (!activeTicket?.ticketId) {
-          if (active) setLoadError("Nenhuma passagem ativa para vincular bagagens.");
-          return;
-        }
-        if (active) setTicket(activeTicket);
-
-        const { luggages: list } = await luggageApi.getByTicket(activeTicket.ticketId);
-        if (active) setLuggages(Array.isArray(list) ? list : []);
-      } catch (err: any) {
-        if (active) setLoadError(err?.message || "Não foi possível carregar suas bagagens.");
-      } finally {
-        if (active) setLoading(false);
-      }
+  const fetchLuggages = useCallback(async () => {
+    const userId = getStoredUserId();
+    if (!userId) {
+      setLoading(false);
+      setLoadError("Sessão não encontrada. Entre novamente para ver suas bagagens.");
+      return;
     }
 
-    loadLuggages();
-    return () => { active = false; };
+    try {
+      setLoading(true);
+      setLoadError("");
+
+      // 1. Busca todas as bagagens diretamente pelo userId
+      const userRes = await luggageApi.getByUser(userId).catch(() => ({ luggages: [] }));
+      let allLuggages = Array.isArray(userRes.luggages) ? userRes.luggages : [];
+
+      // 2. Se a busca por usuário não retornar, tenta agregação por tickets
+      if (allLuggages.length === 0) {
+        const tickets = await passengerApi.getUserTickets(userId).catch(() => []);
+        if (Array.isArray(tickets) && tickets.length > 0) {
+          const fetchedByTicket: UserLuggageItem[] = [];
+          for (const t of tickets) {
+            try {
+              const res = await luggageApi.getByTicket(t.ticketId);
+              if (Array.isArray(res.luggages)) {
+                for (const b of res.luggages) {
+                  fetchedByTicket.push({
+                    ...b,
+                    departure: t.departure,
+                    arrival: t.arrival,
+                    seat: t.seat,
+                    ticketUsed: t.used,
+                    ticketId: t.ticketId,
+                  });
+                }
+              }
+            } catch (_) {}
+          }
+          allLuggages = fetchedByTicket;
+        }
+      }
+
+      setLuggages(allLuggages);
+    } catch (err: any) {
+      setLoadError(err?.message || "Não foi possível carregar suas bagagens.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const routeLabel = ticket
-    ? `${cityOf(ticket.departure)} → ${cityOf(ticket.arrival)}`
-    : "--";
+  useEffect(() => {
+    fetchLuggages();
+  }, [fetchLuggages]);
+
+  const handleRemoveLuggage = async (baggageId: string) => {
+    if (!confirm("Deseja realmente remover esta bagagem da sua viagem?")) return;
+
+    try {
+      setDeletingId(baggageId);
+      await luggageApi.removeLuggage(baggageId);
+      await fetchLuggages();
+    } catch (err: any) {
+      alert("Erro ao remover bagagem: " + (err.message || "falha na comunicação"));
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <Screen bg={DS.bg}>
       <BackHeader title="Minhas bagagens" onBack={() => nav("/home")} />
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px 0" }}>
-        {/* Subtítulo vinculado */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px 30px" }}>
+        {/* Subtítulo informativo */}
         <div style={{
           background: DS.primaryLight, border: `1.5px solid ${DS.primaryMid}`,
           borderRadius: 14, padding: "12px 14px", marginBottom: 16,
-          display: "flex", alignItems: "center", gap: 10,
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
         }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke={DS.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <div>
-            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: DS.primary }}>Suas bagagens</p>
-            <p style={{ margin: "1px 0 0", fontSize: 12, color: DS.text2 }}>Vinculadas automaticamente à sua viagem.</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke={DS.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <div>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: DS.primary }}>Suas bagagens ativas</p>
+              <p style={{ margin: "1px 0 0", fontSize: 12, color: DS.text2 }}>
+                {luggages.length === 1 ? "1 volume registrado" : `${luggages.length} volumes registrados`}
+              </p>
+            </div>
           </div>
+          <button
+            onClick={() => nav("/bagagens/registrar")}
+            style={{
+              padding: "6px 12px", borderRadius: 8, background: DS.primary, color: "#fff",
+              border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer",
+            }}
+          >
+            + Adicionar
+          </button>
         </div>
 
         {/* Estado de carregamento */}
@@ -100,135 +150,131 @@ export function BagagensScreen() {
             display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
           }}>
             <div style={{
-              width: 26, height: 26,
+              width: 28, height: 28,
               border: `3px solid ${DS.primaryMid}`, borderTopColor: DS.primary,
               borderRadius: "50%", animation: "spin 1s linear infinite",
             }} />
-            <p style={{ margin: 0, fontSize: 13, color: DS.text2 }}>Carregando bagagens...</p>
+            <p style={{ margin: 0, fontSize: 13, color: DS.text2 }}>Carregando bagagens vinculadas...</p>
           </div>
         )}
 
-        {/* Aviso quando não foi possível carregar */}
-        {!loading && loadError && (
-          <div style={{
-            background: DS.warningLight, border: `1px solid ${DS.warning}`,
-            borderRadius: 12, padding: "14px 16px", marginBottom: 12,
-          }}>
-            <p style={{ margin: 0, fontSize: 12, color: DS.warning, lineHeight: 1.4 }}>{loadError}</p>
-          </div>
-        )}
-
-        {/* Nenhuma bagagem registrada */}
-        {!loading && !loadError && luggages.length === 0 && (
+        {/* Erro */}
+        {loadError && !loading && (
           <div style={{
             background: DS.surface, borderRadius: 12, border: `1px solid ${DS.border}`,
-            padding: "36px 20px", marginBottom: 12, textAlign: "center",
+            padding: "24px 20px", textAlign: "center", marginBottom: 12,
           }}>
-            <SuitcaseSVG />
-            <p style={{ margin: "10px 0 0", fontSize: 14, fontWeight: 700, color: DS.text1 }}>
-              Nenhuma bagagem registrada
-            </p>
-            <p style={{ margin: "6px 0 0", fontSize: 12, color: DS.text2, lineHeight: 1.4 }}>
-              Use o botão abaixo para vincular uma mala à sua viagem.
-            </p>
+            <p style={{ margin: 0, fontSize: 13, color: DS.error, fontWeight: 600 }}>{loadError}</p>
           </div>
         )}
 
-        {/* Cards das bagagens vinculadas no Oracle */}
-        {luggages.map((bag, index) => (
-          <motion.div
-            key={bag.baggageId}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, delay: index * 0.05 }}
-            onClick={() => nav("/bagagem-detalhe", {
-              state: { baggageId: bag.baggageId, label: `Bagagem ${String(index + 1).padStart(2, "0")}` },
+        {/* Lista de Bagagens */}
+        {!loading && !loadError && luggages.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+            {luggages.map((bag, i) => {
+              const isBoarded = bag.ticketUsed === 1;
+              return (
+                <div
+                  key={bag.baggageId}
+                  style={{
+                    background: DS.surface,
+                    borderRadius: 14,
+                    border: `1px solid ${DS.border}`,
+                    padding: "16px",
+                    boxShadow: DS.shadowXs,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{
+                        width: 40, height: 40, borderRadius: 10,
+                        background: DS.primaryLight, display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                          <rect x="4" y="7" width="16" height="12" rx="2" stroke={DS.primary} strokeWidth="2" />
+                          <path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2" stroke={DS.primary} strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: DS.text1 }}>
+                          Bagagem #{i + 1}
+                        </p>
+                        <p style={{ margin: "2px 0 0", fontSize: 11, color: DS.text3, fontFamily: "monospace" }}>
+                          ID: {shortId(bag.baggageId, 12)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <StatusBadge label={isBoarded ? "Em trânsito" : "Registrada"} kind={isBoarded ? "primary" : "success"} />
+                  </div>
+
+                  {bag.departure && bag.arrival && (
+                    <div style={{ background: DS.bg, borderRadius: 8, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 12, color: DS.text2 }}>
+                        {cityOf(bag.departure)} → {cityOf(bag.arrival)}
+                      </span>
+                      {bag.seat && (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: DS.primary }}>
+                          Poltrona {bag.seat}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                    <button
+                      onClick={() => handleRemoveLuggage(bag.baggageId)}
+                      disabled={deletingId === bag.baggageId}
+                      style={{
+                        background: "none",
+                        border: "1px solid rgba(220,38,38,0.3)",
+                        borderRadius: 8,
+                        padding: "6px 12px",
+                        color: DS.error,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: deletingId === bag.baggageId ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      {deletingId === bag.baggageId ? "Removendo..." : "Remover Bagagem"}
+                    </button>
+                  </div>
+                </div>
+              );
             })}
-            style={{
-              background: DS.surface, borderRadius: 12,
-              border: `1px solid ${DS.border}`, boxShadow: DS.shadowSm,
-              padding: "16px 16px", marginBottom: 12, cursor: "pointer",
-            }}
-            whileTap={{ scale: 0.985 }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
-              <SuitcaseSVG />
-              <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: DS.text1 }}>
-                    Bagagem {String(index + 1).padStart(2, "0")}
-                  </p>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: DS.success, background: DS.successLight, borderRadius: 100, padding: "3px 10px" }}>
-                    ✓ Registrada
-                  </span>
-                </div>
-                <p style={{ margin: "3px 0 0", fontSize: 12, color: DS.text2, fontFamily: "monospace" }}>
-                  ID: {shortId(bag.baggageId, 12)}
-                </p>
-              </div>
-            </div>
+          </div>
+        )}
 
-            <div style={{ background: DS.bg, borderRadius: 12, padding: "12px 14px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${DS.border}` }}>
-                <span style={{ fontSize: 12, color: DS.text2 }}>Viagem</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: DS.text1 }}>{routeLabel}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${DS.border}` }}>
-                <span style={{ fontSize: 12, color: DS.text2 }}>Status</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: DS.success }}>✓ Registrada</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0" }}>
-                <span style={{ fontSize: 12, color: DS.text2 }}>Identificação NFC</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <motion.div
-                    animate={{ opacity: [1, 0.4, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    style={{ width: 7, height: 7, borderRadius: "50%", background: DS.success }}
-                  />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: DS.success }}>Ativo</span>
-                </div>
-              </div>
-            </div>
-
-            <p style={{ margin: "12px 0 0", fontSize: 12, color: DS.primary, fontWeight: 600, textAlign: "center" }}>
-              Esta bagagem será validada junto à sua viagem.
+        {/* Empty state quando não há bagagens */}
+        {!loading && !loadError && luggages.length === 0 && (
+          <div style={{
+            background: DS.surface, borderRadius: 14, border: `1px solid ${DS.border}`,
+            padding: "40px 20px", textAlign: "center", marginBottom: 20,
+            display: "flex", flexDirection: "column", alignItems: "center",
+          }}>
+            <SuitcaseSVG />
+            <p style={{ margin: "16px 0 6px", fontSize: 16, fontWeight: 700, color: DS.text1 }}>
+              Nenhuma bagagem registrada
             </p>
-
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginTop: 10 }}>
-              <span style={{ fontSize: 12, color: DS.text2 }}>Ver detalhes</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                <path d="M9 18l6-6-6-6" stroke={DS.text3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-          </motion.div>
-        ))}
-
-        {/* Adicionar nova */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.35 }}
-          onClick={() => nav("/bagagem-nova")}
-          style={{
-            background: DS.surface, borderRadius: 12,
-            border: `2px dashed ${DS.primaryMid}`,
-            padding: "20px 16px", cursor: "pointer",
-            display: "flex", alignItems: "center", gap: 14,
-            marginBottom: 20,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path d="M12 5v14M5 12h14" stroke={DS.primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <p style={{ margin: "0 0 20px", fontSize: 13, color: DS.text2, lineHeight: 1.4, maxWidth: 280 }}>
+              Você ainda não vinculou nenhuma mala à sua viagem. Use o botão abaixo para adicionar.
+            </p>
+            <button
+              onClick={() => nav("/bagagens/registrar")}
+              style={{
+                height: 44, padding: "0 22px", borderRadius: 100, border: "none",
+                background: `linear-gradient(135deg, ${DS.primaryDark}, ${DS.primary})`,
+                color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
+              }}
+            >
+              + Adicionar Bagagem
+            </button>
           </div>
-          <div>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: DS.primary }}>Adicionar bagagem</p>
-            <p style={{ margin: "2px 0 0", fontSize: 12, color: DS.text2 }}>Registrar nova mala com NFC</p>
-          </div>
-        </motion.div>
+        )}
       </div>
-
     </Screen>
   );
 }

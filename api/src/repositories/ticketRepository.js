@@ -108,7 +108,7 @@ class TicketRepository {
       JOIN TRIPS TR ON TR.TRIP_ID = TK.TICKET_TRIP
       JOIN USERS U ON U.USER_ID = UT.UT_USER
       WHERE UT.UT_USER = HEXTORAW(:userId)
-      ORDER BY TR.TRIP_DATE DESC
+      ORDER BY TR.TRIP_DATE ASC
     `;
 
     const result = await db.execute(sql, { userId: hex });

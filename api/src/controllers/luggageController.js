@@ -45,6 +45,26 @@ class LuggageController {
       next(error);
     }
   }
+
+  async getByUser(req, res, next) {
+    try {
+      const { userId } = req.params;
+      const luggages = await luggageService.getByUser(userId);
+      return res.status(200).json({ luggages });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async removeAllByTrip(req, res, next) {
+    try {
+      const { tripId } = req.params;
+      const result = await luggageService.removeAllByTrip(tripId);
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new LuggageController();

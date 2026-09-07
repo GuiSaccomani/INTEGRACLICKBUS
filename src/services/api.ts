@@ -94,6 +94,7 @@ export interface TripPassenger {
   isBoarded: boolean;
   baggageCount: number;
   hasBaggage: boolean;
+  utHash?: string;
 }
 
 export interface TripSummary {
@@ -293,6 +294,16 @@ export const luggageApi = {
 
   removeLuggage: async (baggageId: string) => {
     return request(`/luggages/${baggageId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  getByUser: async (userId: string): Promise<{ luggages: (BaggageItem & { departure?: string; arrival?: string; seat?: number; ticketUsed?: number; tripDate?: string })[] }> => {
+    return request(`/luggages/user/${userId}`);
+  },
+
+  removeAllByTrip: async (tripId: string): Promise<{ removedCount: number; message: string }> => {
+    return request(`/luggages/trip/${tripId}`, {
       method: 'DELETE',
     });
   },

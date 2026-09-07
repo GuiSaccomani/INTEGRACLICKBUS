@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
-import { useDS, Screen, BtnPrimary, BtnGhost, BackHeader, Fonts } from "../components/MobileLayout";
+import { useDS, Screen, BtnPrimary, BtnGhost, BackHeader, Fonts, StatusBadge } from "../components/MobileLayout";
 import { useA11y } from "../components/AccessibilityContext";
-import { passengerApi, ValidatedTicketResult } from "../../services/api";
+import { passengerApi, driverApi, ValidatedTicketResult, TripPassenger } from "../../services/api";
 import { nfcService } from "../../services/nfc";
 import { QRCodeCameraScanner } from "../components/QRCodeCameraScanner";
 import { playValidationSuccessSound, triggerSuccessHaptic } from "../../services/sound";
 import { DEMO_MODE } from "../../services/demoMode";
+import { getStoredUserId } from "../../services/session";
 
 type Mode = "select" | "qr" | "nfc";
 type Phase = "idle" | "validating" | "success" | "error";
@@ -22,20 +23,28 @@ export function MotoristaValidacaoScreen() {
   const [validatedData, setValidatedData] = useState<ValidatedTicketResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [driverId, setDriverId] = useState<string>("");
+  const [pendingPassengers, setPendingPassengers] = useState<TripPassenger[]>([]);
+  const [resetting, setResetting] = useState(false);
 
   const nfcSupport = nfcService.checkSupport();
 
-  useEffect(() => {
-    const saved = localStorage.getItem("integra_user");
-    if (saved) {
+  const loadTripData = useCallback(async () => {
+    const id = getStoredUserId();
+    if (id) {
+      setDriverId(id);
       try {
-        const user = JSON.parse(saved);
-        if (user?.userId) {
-          setDriverId(user.userId);
+        const { trips } = await driverApi.getTrips(id);
+        if (Array.isArray(trips) && trips.length > 0) {
+          const res = await driverApi.getTripPassengers(trips[0].tripId);
+          setPendingPassengers(res.passengers || []);
         }
       } catch (_) {}
     }
   }, []);
+
+  useEffect(() => {
+    loadTripData();
+  }, [loadTripData]);
 
   // Executa validação real contra o backend Node/Express e banco Oracle
   const handleValidateCredential = useCallback(async (credentialRef: string) => {
@@ -49,9 +58,8 @@ export function MotoristaValidacaoScreen() {
       playValidationSuccessSound();
       triggerSuccessHaptic();
       triggerFeedback("success", "Passagem aprovada com sucesso.");
+      loadTripData();
     } catch (err: any) {
-      // Aprovação simulada, restrita ao modo de demonstração: exibe embarque
-      // aprovado sem consulta real e por isso nunca vale em build publicada.
       if (
         DEMO_MODE &&
         (credentialRef.includes("DEMO") ||
@@ -79,7 +87,7 @@ export function MotoristaValidacaoScreen() {
       setPhase("error");
       triggerFeedback("error", message);
     }
-  }, [driverId, triggerFeedback]);
+  }, [driverId, triggerFeedback, loadTripData]);
 
   // Ativação do leitor NFC físico
   const handleStartNfc = async () => {
@@ -109,12 +117,31 @@ export function MotoristaValidacaoScreen() {
     }
   };
 
+  const handleResetDemoTickets = async () => {
+    try {
+      setResetting(true);
+      await passengerApi.resetDemoTickets();
+      setPhase("idle");
+      setMode("select");
+      setErrorMessage("");
+      await loadTripData();
+      triggerFeedback("success", "Todas as passagens foram restauradas para prontas para embarque.");
+    } catch (err: any) {
+      alert("Erro ao restaurar passagens: " + (err.message || "falha de comunicação"));
+    } finally {
+      setResetting(false);
+    }
+  };
+
   const handleReset = () => {
     setMode("select");
     setPhase("idle");
     setValidatedData(null);
     setErrorMessage("");
+    loadTripData();
   };
+
+  const awaitingPassengers = pendingPassengers.filter(p => !p.isBoarded && p.status !== "Embarcado");
 
   return (
     <Screen bg={DS.surface}>
@@ -126,40 +153,40 @@ export function MotoristaValidacaoScreen() {
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          padding: "16px 24px",
+          padding: "16px 20px 30px",
           overflowY: "auto",
         }}
       >
         {/* ── SELEÇÃO DE MÉTODO DE VALIDAÇÃO ── */}
         {phase === "idle" && mode === "select" && (
-          <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 20, margin: "auto 0" }}>
-            <div style={{ textAlign: "center" }}>
+          <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ textAlign: "center", padding: "8px 0" }}>
               <div
                 style={{
-                  width: 72,
-                  height: 72,
+                  width: 64,
+                  height: 64,
                   borderRadius: "50%",
                   background: DS.primaryLight,
                   border: `2px solid ${DS.primaryMid}`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  margin: "0 auto 16px",
+                  margin: "0 auto 12px",
                 }}
               >
-                <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
                   <path d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" stroke={DS.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
-              <h2 style={{ fontFamily: Fonts.heading, fontSize: 22, margin: "0 0 8px", color: DS.text1 }}>
+              <h2 style={{ fontFamily: Fonts.heading, fontSize: 20, margin: "0 0 4px", color: DS.text1 }}>
                 Pronto para Validar
               </h2>
-              <p style={{ margin: 0, fontSize: 14, color: DS.text2, lineHeight: 1.5 }}>
-                Escolha como deseja ler a credencial do passageiro para autorizar o embarque.
+              <p style={{ margin: 0, fontSize: 13, color: DS.text2, lineHeight: 1.4 }}>
+                Apresente o QR Code da passagem ou aproxime a credencial NFC para autorizar o embarque.
               </p>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <BtnPrimary
                 label="Validar por QR Code (Câmera)"
                 onClick={() => setMode("qr")}
@@ -176,21 +203,21 @@ export function MotoristaValidacaoScreen() {
                 onClick={handleStartNfc}
                 style={{
                   width: "100%",
-                  height: 52,
-                  borderRadius: 14,
+                  height: 48,
+                  borderRadius: 12,
                   border: `1.5px solid ${DS.primaryMid}`,
                   background: DS.primaryLight,
                   color: DS.primary,
-                  fontSize: 15,
+                  fontSize: 14,
                   fontWeight: 700,
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 10,
+                  gap: 8,
                 }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                   <path d="M6 8.5C7.3 6.6 9.5 5.3 12 5.3s4.7 1.3 6 3.2" stroke={DS.primary} strokeWidth="2" strokeLinecap="round" />
                   <path d="M8.5 11.5C9.3 10.3 10.6 9.5 12 9.5s2.7.8 3.5 2" stroke={DS.primary} strokeWidth="2" strokeLinecap="round" />
                   <circle cx="12" cy="14" r="2" fill={DS.primary} />
@@ -199,20 +226,88 @@ export function MotoristaValidacaoScreen() {
               </button>
             </div>
 
-            <div style={{ background: DS.bg, borderRadius: 12, padding: "12px 14px", border: `1px solid ${DS.border}` }}>
-              <p style={{ margin: 0, fontSize: 12, color: DS.text2, lineHeight: 1.4 }}>
-                <strong>Atenção:</strong> A validação consulta em tempo real o sistema, garantindo autenticidade e impedindo bilhetes duplicados.
+            {/* ── PASSAGEIROS AGUARDANDO EMBARQUE (CONTINGÊNCIA RÁPIDA) ── */}
+            <div style={{ background: DS.bg, borderRadius: 14, padding: "14px", border: `1px solid ${DS.border}` }}>
+              <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 800, color: DS.text3, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Aguardando Embarque ({awaitingPassengers.length})
               </p>
+
+              {awaitingPassengers.length === 0 ? (
+                <p style={{ margin: 0, fontSize: 12, color: DS.text3, textAlign: "center" }}>
+                  Todos os passageiros desta viagem já embarcaram!
+                </p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {awaitingPassengers.map((p) => (
+                    <div
+                      key={p.ticketId}
+                      style={{
+                        background: DS.surface,
+                        borderRadius: 10,
+                        padding: "10px 12px",
+                        border: `1px solid ${DS.border}`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 8,
+                      }}
+                    >
+                      <div>
+                        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: DS.text1 }}>
+                          {p.passengerName}
+                        </p>
+                        <p style={{ margin: "2px 0 0", fontSize: 11, color: DS.text2 }}>
+                          Poltrona {p.seat} · {p.baggageCount} mala(s)
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleValidateCredential(p.utHash || p.ticketId)}
+                        style={{
+                          padding: "6px 14px",
+                          borderRadius: 8,
+                          background: DS.primary,
+                          color: "#FFF",
+                          border: "none",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Validar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+
+            {/* Atalho de Reset para demonstração */}
+            <button
+              type="button"
+              onClick={handleResetDemoTickets}
+              disabled={resetting}
+              style={{
+                background: "none",
+                border: "none",
+                color: DS.primary,
+                fontSize: 12,
+                fontWeight: 600,
+                textDecoration: "underline",
+                cursor: resetting ? "not-allowed" : "pointer",
+                margin: "0 auto",
+              }}
+            >
+              {resetting ? "Restaurando..." : "↻ Restaurar todas as passagens para teste"}
+            </button>
           </div>
         )}
 
         {/* ── MODO QR CODE: LEITURA PELA CÂMERA ── */}
         {phase === "idle" && mode === "qr" && (
-          <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-            {/* O scanner já oferece entrada manual da credencial como contingência */}
+          <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
             <QRCodeCameraScanner onScanSuccess={handleValidateCredential} />
-
             <BtnGhost label="Voltar aos métodos" onClick={handleReset} />
           </div>
         )}
@@ -222,30 +317,30 @@ export function MotoristaValidacaoScreen() {
           <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", alignItems: "center", margin: "auto 0" }}>
             <div
               style={{
-                width: 100,
-                height: 100,
+                width: 80,
+                height: 80,
                 borderRadius: "50%",
                 background: DS.primaryLight,
                 border: `3px solid ${DS.primary}`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                marginBottom: 24,
-                animation: "pulse 2s infinite ease-in-out",
+                marginBottom: 20,
+                animation: "pulse 1.8s infinite ease-in-out",
               }}
             >
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
                 <path d="M6 8.5C7.3 6.6 9.5 5.3 12 5.3s4.7 1.3 6 3.2" stroke={DS.primary} strokeWidth="2.5" strokeLinecap="round" />
                 <path d="M8.5 11.5C9.3 10.3 10.6 9.5 12 9.5s2.7.8 3.5 2" stroke={DS.primary} strokeWidth="2.5" strokeLinecap="round" />
                 <circle cx="12" cy="14" r="2" fill={DS.primary} />
               </svg>
             </div>
 
-            <h3 style={{ margin: "0 0 8px", fontSize: 20, color: DS.text1, textAlign: "center" }}>
-              Aproxime a Tag NFC
+            <h3 style={{ margin: "0 0 8px", fontSize: 18, color: DS.text1, textAlign: "center" }}>
+              Aproxime o Celular do Passageiro
             </h3>
-            <p style={{ margin: "0 0 24px", fontSize: 14, color: DS.text2, textAlign: "center", lineHeight: 1.5 }}>
-              Mantenha o celular próximo à tag física para ler a credencial.
+            <p style={{ margin: "0 0 20px", fontSize: 13, color: DS.text2, textAlign: "center", lineHeight: 1.4 }}>
+              Mantenha o aparelho próximo para capturar a credencial segura via NFC.
             </p>
 
             <BtnGhost label="Trocar para QR Code" onClick={() => setMode("qr")} />
@@ -267,7 +362,7 @@ export function MotoristaValidacaoScreen() {
             />
             <h3 style={{ margin: 0, fontSize: 18, color: DS.text1 }}>Validando no sistema...</h3>
             <p style={{ margin: 0, fontSize: 13, color: DS.text2, textAlign: "center" }}>
-              Verificando autenticidade do bilhete e prevenindo concorrência.
+              Verificando autenticidade do bilhete e registrando embarque no Oracle.
             </p>
           </div>
         )}
@@ -279,31 +374,10 @@ export function MotoristaValidacaoScreen() {
             animate={{ opacity: 1, scale: 1 }}
             style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", alignItems: "center", margin: "auto 0" }}
           >
-            {/* Badge Salvo */}
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                background: "rgba(16, 185, 129, 0.12)",
-                border: "1px solid rgba(16, 185, 129, 0.35)",
-                padding: "6px 14px",
-                borderRadius: 100,
-                marginBottom: 16,
-              }}
-            >
-              <div style={{ width: 7, height: 7, borderRadius: "50%", background: DS.success }} />
-              <span style={{ fontSize: 11, fontWeight: 800, color: DS.success, letterSpacing: "0.8px", textTransform: "uppercase" }}>
-                ✓ Salvo no Sistema · Registro Ativo
-              </span>
-            </motion.div>
-
             <div
               style={{
-                width: 80,
-                height: 80,
+                width: 76,
+                height: 76,
                 borderRadius: "50%",
                 background: `linear-gradient(135deg, ${DS.success}, #16a34a)`,
                 display: "flex",
@@ -314,26 +388,26 @@ export function MotoristaValidacaoScreen() {
               }}
             >
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
-                <path d="M5 13l4 4L19 7" stroke="white" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M5 13l4 4L19 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
 
-            <h2 style={{ fontFamily: Fonts.heading, fontSize: 24, fontWeight: 900, margin: "0 0 4px", color: DS.success, textAlign: "center" }}>
-              PASSAGEM APROVADA
+            <h2 style={{ fontFamily: Fonts.heading, fontSize: 22, margin: "0 0 4px", color: DS.success, textAlign: "center" }}>
+              EMBARQUE AUTORIZADO
             </h2>
-            <p style={{ margin: "0 0 20px", fontSize: 14, color: DS.text2, textAlign: "center" }}>
-              Embarque autorizado e bilhete salvo com sucesso no sistema.
+            <p style={{ margin: "0 0 16px", fontSize: 13, color: DS.text2, textAlign: "center" }}>
+              Passageiro identificado e registrado com sucesso.
             </p>
 
             <div
               style={{
                 width: "100%",
                 background: DS.surface,
+                borderRadius: 14,
+                padding: "16px",
                 border: `1px solid ${DS.border}`,
-                borderRadius: 16,
-                padding: "16px 18px",
-                marginBottom: 20,
                 boxShadow: DS.shadowSm,
+                marginBottom: 20,
                 display: "flex",
                 flexDirection: "column",
                 gap: 10,
@@ -345,7 +419,7 @@ export function MotoristaValidacaoScreen() {
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ fontSize: 13, color: DS.text2 }}>Poltrona:</span>
-                <span style={{ fontSize: 15, fontWeight: 800, color: DS.primary }}>{validatedData.seat}</span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: DS.primary }}>{validatedData.seat}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ fontSize: 13, color: DS.text2 }}>Itinerário:</span>
@@ -354,22 +428,21 @@ export function MotoristaValidacaoScreen() {
                 </span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 13, color: DS.text2 }}>Bagagens Vinculadas:</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: DS.text1 }}>{validatedData.luggagesCount} volume(s)</span>
+                <span style={{ fontSize: 13, color: DS.text2 }}>Bagagens:</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: validatedData.luggagesCount > 0 ? DS.success : DS.text2 }}>
+                  {validatedData.luggagesCount} despachada(s)
+                </span>
               </div>
             </div>
 
             <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
-              <BtnPrimary
-                label="Adicionar Bagagem para este Passageiro"
-                onClick={() => nav("/motorista/bagagem", { state: { ticketId: validatedData.ticketId, passengerName: validatedData.passengerName } })}
-              />
-              <BtnGhost label="Validar Próximo Passageiro" onClick={handleReset} />
+              <BtnPrimary label="Validar Próximo Passageiro" onClick={handleReset} />
+              <BtnGhost label="Ver Lista de Passageiros" onClick={() => nav("/motorista/passageiros")} />
             </div>
           </motion.div>
         )}
 
-        {/* ── RESULTADO: PASSAGEIRO NÃO VALIDADO (ERRO) ── */}
+        {/* ── RESULTADO: ERRO / CONFLITO ── */}
         {phase === "error" && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -378,8 +451,8 @@ export function MotoristaValidacaoScreen() {
           >
             <div
               style={{
-                width: 80,
-                height: 80,
+                width: 76,
+                height: 76,
                 borderRadius: "50%",
                 background: `linear-gradient(135deg, ${DS.error}, #dc2626)`,
                 display: "flex",
@@ -389,17 +462,55 @@ export function MotoristaValidacaoScreen() {
                 boxShadow: "0 10px 30px rgba(220,38,38,0.4)",
               }}
             >
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+              <svg width="38" height="38" viewBox="0 0 24 24" fill="none">
                 <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
 
-            <h2 style={{ fontFamily: Fonts.heading, fontSize: 22, margin: "0 0 6px", color: DS.error, textAlign: "center" }}>
+            <h2 style={{ fontFamily: Fonts.heading, fontSize: 20, margin: "0 0 6px", color: DS.error, textAlign: "center" }}>
               PASSAGEIRO NÃO VALIDADO
             </h2>
-            <p style={{ margin: "0 0 24px", fontSize: 14, color: DS.text2, textAlign: "center", lineHeight: 1.5 }}>
+            <p style={{ margin: "0 0 20px", fontSize: 13, color: DS.text2, textAlign: "center", lineHeight: 1.4 }}>
               {errorMessage || "Não foi possível autorizar o embarque."}
             </p>
+
+            {/* Se o erro for de bilhete já utilizado, oferece restauração rápida */}
+            {errorMessage.includes("já foi utilizada") && (
+              <div
+                style={{
+                  width: "100%",
+                  background: "rgba(245,158,11,0.1)",
+                  border: "1px solid #F59E0B",
+                  borderRadius: 12,
+                  padding: "12px 14px",
+                  marginBottom: 16,
+                  textAlign: "center",
+                }}
+              >
+                <p style={{ margin: 0, fontSize: 12, color: DS.text1, lineHeight: 1.4 }}>
+                  Para realizar novas gravações ou testes, você pode restaurar todas as passagens para não utilizadas.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleResetDemoTickets}
+                  disabled={resetting}
+                  style={{
+                    marginTop: 8,
+                    height: 38,
+                    padding: "0 14px",
+                    borderRadius: 8,
+                    background: "#F59E0B",
+                    color: "#FFF",
+                    border: "none",
+                    fontWeight: 700,
+                    fontSize: 12,
+                    cursor: resetting ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {resetting ? "Restaurando..." : "↻ Restaurar Todas as Passagens (Demo/Gravação)"}
+                </button>
+              </div>
+            )}
 
             <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
               <BtnPrimary label="Tentar Novamente" onClick={handleReset} />
