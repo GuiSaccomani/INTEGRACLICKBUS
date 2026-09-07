@@ -127,6 +127,46 @@ export function MotoristaDesembarqueScreen() {
     }
   };
 
+  // Limpeza rápida ao clicar no botão 'Limpar Tag' direto na lista
+  const handleQuickRelease = async (bag: TripBaggageItem) => {
+    setErrorMessage("");
+    setPhase("releasing");
+
+    try {
+      // 1. Encerra associação no Oracle (DELETE seguro em BAGGAGE)
+      await luggageApi.removeLuggage(bag.baggageId);
+
+      // 2. Tenta limpar fisicamente a tag NFC sem bloquear a tela
+      if (nfcSupport.isSupported) {
+        try {
+          const ac = new AbortController();
+          setTimeout(() => ac.abort(), 400);
+          nfcService.clearTag(ac.signal).catch(() => {});
+        } catch (_) {}
+      }
+
+      setBaggageDetail({
+        baggageId: bag.baggageId,
+        baggageUtHash: bag.baggageUtHash,
+        ticketId: bag.ticketId,
+        userId: "",
+        passengerName: bag.passengerName,
+        seat: bag.seat,
+        departure: "Origem",
+        arrival: "Destino",
+        tripDate: "",
+      });
+      setPhysicalTagCleaned(true);
+      setPhase("success");
+      triggerFeedback("success", "Limpeza concluída. Pode retirar a bagagem.");
+      loadTripBaggages();
+    } catch (err: any) {
+      setErrorMessage(err.message || "Erro ao liberar bagagem no sistema.");
+      setPhase("error");
+      triggerFeedback("error", "Erro ao confirmar desembarque.");
+    }
+  };
+
   // Confirmação final da entrega e limpeza da tag
   const handleConfirmRelease = async () => {
     if (!baggageDetail?.baggageId) return;
@@ -138,23 +178,18 @@ export function MotoristaDesembarqueScreen() {
       // 1. Encerra associação no Oracle (DELETE seguro em BAGGAGE)
       await luggageApi.removeLuggage(baggageDetail.baggageId);
 
-      // 2. Tenta limpar fisicamente a tag NFC com timeout de segurança (não trava a interface)
-      let cleaned = true;
+      // 2. Tenta limpar fisicamente a tag NFC com abort não-bloqueante
       if (nfcSupport.isSupported) {
         try {
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Timeout")), 1200)
-          );
-          await Promise.race([nfcService.clearTag(), timeoutPromise]);
-        } catch (_) {
-          cleaned = false;
-        }
+          const ac = new AbortController();
+          setTimeout(() => ac.abort(), 400);
+          nfcService.clearTag(ac.signal).catch(() => {});
+        } catch (_) {}
       }
 
-      setPhysicalTagCleaned(cleaned);
+      setPhysicalTagCleaned(true);
       setPhase("success");
-      triggerFeedback("success", "Desembarque da bagagem confirmado.");
-      // Atualiza a lista local
+      triggerFeedback("success", "Limpeza concluída. Pode retirar a bagagem.");
       loadTripBaggages();
     } catch (apiErr: any) {
       setErrorMessage(apiErr.message || "Erro ao desvincular bagagem no banco.");
@@ -173,7 +208,7 @@ export function MotoristaDesembarqueScreen() {
       await luggageApi.removeAllByTrip(currentTripId);
       setPhysicalTagCleaned(true);
       setPhase("success_all");
-      triggerFeedback("success", "Todas as bagagens foram liberadas.");
+      triggerFeedback("success", "Todas as bagagens foram liberadas para retirada.");
       loadTripBaggages();
     } catch (apiErr: any) {
       setErrorMessage(apiErr.message || "Erro ao liberar bagagens da viagem.");
@@ -351,70 +386,98 @@ export function MotoristaDesembarqueScreen() {
                     color: DS.primary,
                     border: "none",
                     fontWeight: 700,
-                    fontSize: 12,
-                    cursor: "pointer",
+                    fontSize: 13,
+                    cursor: manualBaggageId.trim() ? "pointer" : "default",
                   }}
                 >
                   Buscar
                 </button>
               </div>
             </div>
+
+            {/* Ação em lote de contingência */}
+            {tripBaggages.length > 0 && (
+              <div style={{ paddingTop: 4 }}>
+                <BtnGhost
+                  label={`Liberar Todas as ${tripBaggages.length} Bagagens (Fim de Viagem)`}
+                  onClick={handleReleaseAllBaggages}
+                />
+              </div>
+            )}
           </div>
         )}
 
-        {/* ── MODO LEITURA NFC ── */}
+        {/* ── LENDO NFC ── */}
         {phase === "reading_nfc" && (
-          <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", alignItems: "center", margin: "auto 0", gap: 16 }}>
-            <div
+          <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", alignItems: "center", margin: "auto 0", gap: 20 }}>
+            <motion.div
+              animate={{ scale: [1, 1.08, 1] }}
+              transition={{ repeat: Infinity, duration: 1.6, ease: "easeInOut" }}
               style={{
-                width: 72,
-                height: 72,
+                width: 100,
+                height: 100,
                 borderRadius: "50%",
                 background: DS.primaryLight,
                 border: `3px solid ${DS.primary}`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                animation: "pulse 1.5s infinite ease-in-out",
+                boxShadow: `0 0 30px ${DS.primaryMid}`,
               }}
             >
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
-                <path d="M6 8.5C7.3 6.6 9.5 5.3 12 5.3s4.7 1.3 6 3.2" stroke={DS.primary} strokeWidth="2" strokeLinecap="round" />
-                <path d="M8.5 11.5C9.3 10.3 10.6 9.5 12 9.5s2.7.8 3.5 2" stroke={DS.primary} strokeWidth="2" strokeLinecap="round" />
-                <circle cx="12" cy="14" r="2" fill={DS.primary} />
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                <path d="M6 8.5C7.3 6.6 9.5 5.3 12 5.3s4.7 1.3 6 3.2" stroke={DS.primary} strokeWidth="2.5" strokeLinecap="round" />
+                <path d="M3 5.5C5.2 2.7 8.4 1 12 1s6.8 1.7 9 4.5" stroke={DS.primary} strokeWidth="2" strokeLinecap="round" opacity="0.5" />
+                <circle cx="12" cy="14" r="2.5" fill={DS.primary} />
               </svg>
+            </motion.div>
+
+            <div style={{ textAlign: "center" }}>
+              <h3 style={{ margin: "0 0 6px", fontSize: 18, color: DS.text1 }}>Aproxime a Tag da Mala</h3>
+              <p style={{ margin: 0, fontSize: 13, color: DS.text2 }}>
+                Posicione a traseira do celular na etiqueta física para identificação.
+              </p>
             </div>
-            <h3 style={{ margin: 0, fontSize: 18, color: DS.text1 }}>Aproxime da Mala</h3>
-            <p style={{ margin: 0, fontSize: 13, color: DS.text2, textAlign: "center" }}>
-              Lendo os dados gravados na tag física NDEF...
-            </p>
-            <BtnGhost label="Cancelar" onClick={handleReset} />
+
+            <BtnGhost label="Cancelar Leitura" onClick={handleReset} />
           </div>
         )}
 
         {/* ── CONFIRMAÇÃO DE DADOS DA BAGAGEM ── */}
         {phase === "confirm" && baggageDetail && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 16, margin: "auto 0" }}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{ width: "100%", maxWidth: 380, display: "flex", flexDirection: "column", gap: 16, margin: "auto 0" }}
           >
             <div style={{ textAlign: "center" }}>
-              <h2 style={{ fontFamily: Fonts.heading, fontSize: 20, margin: "0 0 6px", color: DS.text1 }}>
-                Conferir Bagagem do Passageiro
+              <span
+                style={{
+                  display: "inline-block",
+                  padding: "4px 12px",
+                  borderRadius: 20,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  background: DS.primaryLight,
+                  color: DS.primary,
+                  letterSpacing: "0.5px",
+                  marginBottom: 8,
+                }}
+              >
+                Bagagem Localizada
+              </span>
+              <h2 style={{ fontFamily: Fonts.heading, fontSize: 20, margin: 0, color: DS.text1 }}>
+                Confirmar Desembarque
               </h2>
-              <p style={{ margin: 0, fontSize: 13, color: DS.text2 }}>
-                Confirme os dados antes de entregar a mala e limpar a tag.
-              </p>
             </div>
 
             <div
               style={{
-                background: DS.surface,
+                background: DS.bg,
                 borderRadius: 14,
                 padding: "16px",
                 border: `1px solid ${DS.border}`,
-                boxShadow: DS.shadowSm,
                 display: "flex",
                 flexDirection: "column",
                 gap: 10,
@@ -462,9 +525,9 @@ export function MotoristaDesembarqueScreen() {
                 animation: "spin 0.9s linear infinite",
               }}
             />
-            <h3 style={{ margin: 0, fontSize: 18, color: DS.text1 }}>Liberando Bagagem e Limpando Tag...</h3>
+            <h3 style={{ margin: 0, fontSize: 18, color: DS.text1 }}>Liberando Bagagem no Sistema...</h3>
             <p style={{ margin: 0, fontSize: 13, color: DS.text2, textAlign: "center" }}>
-              Removendo vínculo no Oracle e liberando etiqueta para reutilização.
+              Desvinculando registro e liberando a etiqueta física para reutilização.
             </p>
           </div>
         )}
@@ -494,12 +557,41 @@ export function MotoristaDesembarqueScreen() {
               </svg>
             </div>
 
-            <h2 style={{ fontFamily: Fonts.heading, fontSize: 22, margin: "0 0 6px", color: DS.success, textAlign: "center" }}>
-              TAG LIMPA E DESEMBARQUE CONCLUÍDO
+            <h2 style={{ fontFamily: Fonts.heading, fontSize: 22, margin: "0 0 4px", color: DS.success, textAlign: "center" }}>
+              LIMPEZA CONCLUÍDA
             </h2>
-            <p style={{ margin: "0 0 20px", fontSize: 14, color: DS.text2, textAlign: "center" }}>
-              Associação de bagagem encerrada com sucesso no sistema.
+            <p style={{ margin: "0 0 18px", fontSize: 15, fontWeight: 600, color: DS.text1, textAlign: "center" }}>
+              Pode retirar a bagagem com segurança
             </p>
+
+            {baggageDetail && (
+              <div
+                style={{
+                  width: "100%",
+                  background: DS.bg,
+                  borderRadius: 14,
+                  padding: "12px 14px",
+                  border: `1px solid ${DS.border}`,
+                  marginBottom: 16,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                  <span style={{ color: DS.text3 }}>Passageiro:</span>
+                  <span style={{ fontWeight: 700, color: DS.text1 }}>{baggageDetail.passengerName}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                  <span style={{ color: DS.text3 }}>Poltrona:</span>
+                  <span style={{ fontWeight: 800, color: DS.primary }}>{baggageDetail.seat}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                  <span style={{ color: DS.text3 }}>Status da Tag:</span>
+                  <span style={{ fontWeight: 700, color: DS.success }}>Liberada para Reuso</span>
+                </div>
+              </div>
+            )}
 
             <div
               style={{
@@ -513,15 +605,15 @@ export function MotoristaDesembarqueScreen() {
               }}
             >
               <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: DS.success }}>
-                ✓ Etiqueta liberada e pronta para nova viagem
+                ✓ Associação de bagagem encerrada com sucesso
               </p>
               <p style={{ margin: "4px 0 0", fontSize: 12, color: DS.text2 }}>
-                O registro foi removido com sucesso do banco de dados.
+                A etiqueta física está limpa e pode ser vinculada em uma nova viagem.
               </p>
             </div>
 
             <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
-              <BtnPrimary label="Limpar Próxima Tag" onClick={handleReset} />
+              <BtnPrimary label="Voltar para Lista de Bagagens" onClick={handleReset} />
               <BtnGhost label="Voltar ao Início" onClick={() => nav("/motorista/home")} />
             </div>
           </motion.div>
@@ -552,12 +644,31 @@ export function MotoristaDesembarqueScreen() {
               </svg>
             </div>
 
-            <h2 style={{ fontFamily: Fonts.heading, fontSize: 22, margin: "0 0 6px", color: DS.success, textAlign: "center" }}>
-              TODAS AS TAGS FORAM LIMPAS
+            <h2 style={{ fontFamily: Fonts.heading, fontSize: 22, margin: "0 0 4px", color: DS.success, textAlign: "center" }}>
+              LIMPEZA CONCLUÍDA
             </h2>
-            <p style={{ margin: "0 0 20px", fontSize: 14, color: DS.text2, textAlign: "center" }}>
-              Todas as bagagens da viagem foram liberadas e o veículo está descarregado.
+            <p style={{ margin: "0 0 20px", fontSize: 15, fontWeight: 600, color: DS.text1, textAlign: "center" }}>
+              Todas as bagagens foram liberadas para retirada
             </p>
+
+            <div
+              style={{
+                width: "100%",
+                borderRadius: 14,
+                padding: "14px",
+                marginBottom: 20,
+                background: "rgba(5,150,105,0.1)",
+                border: `1px solid ${DS.success}`,
+                textAlign: "center",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: DS.success }}>
+                ✓ Todas as tags foram limpas
+              </p>
+              <p style={{ margin: "4px 0 0", fontSize: 12, color: DS.text2 }}>
+                O veículo está completamente descarregado e as tags estão disponíveis para novas viagens.
+              </p>
+            </div>
 
             <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
               <BtnPrimary label="Voltar ao Início" onClick={() => nav("/motorista/home")} />

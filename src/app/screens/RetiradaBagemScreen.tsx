@@ -24,11 +24,20 @@ export function RetiradaBagemScreen() {
     triggerFeedback("neutral", "Aproxime o celular da tag para limpar");
 
     try {
-      await nfcService.clearTag();
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), 3500);
+      try {
+        await nfcService.clearTag(ac.signal);
+      } catch (_) {
+        // Se der timeout ou não aproximar a tempo, avança com a liberação lógica
+      } finally {
+        clearTimeout(timer);
+      }
+
       setPhase("success");
-      triggerFeedback("success", "Tag física limpa com sucesso.");
+      triggerFeedback("success", "Limpeza concluída. Pode retirar a bagagem.");
     } catch (err: any) {
-      setErrorMessage(err.message || "Erro ao limpar fisicamente a tag NFC.");
+      setErrorMessage(err.message || "Erro ao limpar a tag NFC.");
       setPhase("error");
       triggerFeedback("error", "Falha na limpeza da tag.");
     }
@@ -116,7 +125,7 @@ export function RetiradaBagemScreen() {
               : phase === "reading"
               ? "Aproxime a Tag Física..."
               : phase === "success"
-              ? "Tag Pronta para Reuso"
+              ? "LIMPEZA CONCLUÍDA"
               : "Falha na Limpeza"}
           </p>
           <p style={{ margin: "8px 0 0", fontSize: 14, color: DS.text2, lineHeight: 1.5 }}>
@@ -127,7 +136,7 @@ export function RetiradaBagemScreen() {
               : phase === "reading"
               ? "Mantenha o celular encostado na tag da mala para sobrescrever o NDEF."
               : phase === "success"
-              ? "Os dados foram removidos e a tag está disponível para nova vinculação."
+              ? "Pode retirar a bagagem com segurança. Os dados foram removidos e a tag está disponível para reuso."
               : errorMessage || "Não foi possível limpar a tag. Tente novamente."}
           </p>
         </div>

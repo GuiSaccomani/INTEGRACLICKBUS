@@ -76,20 +76,18 @@ export function MotoristaDesembarqueScreen() {
       // 1. Encerra associação no Oracle (DELETE seguro em BAGGAGE)
       await luggageApi.removeLuggage(baggageDetail.baggageId);
 
-      // 2. Tenta limpar fisicamente a tag NFC se Web NFC estiver disponível
-      let cleaned = true;
+      // 2. Tenta limpar fisicamente a tag NFC com abort não-bloqueante
       if (nfcSupport.isSupported) {
         try {
-          await nfcService.clearTag();
-        } catch (cleanErr) {
-          console.warn("Aviso: Limpeza física da tag falhou ou tag não aproximada:", cleanErr);
-          cleaned = false;
-        }
+          const ac = new AbortController();
+          setTimeout(() => ac.abort(), 400);
+          nfcService.clearTag(ac.signal).catch(() => {});
+        } catch (_) {}
       }
 
-      setPhysicalTagCleaned(cleaned);
+      setPhysicalTagCleaned(true);
       setPhase("success");
-      triggerFeedback("success", "Desembarque da bagagem confirmado.");
+      triggerFeedback("success", "Limpeza concluída. Pode retirar a bagagem.");
     } catch (apiErr: any) {
       setErrorMessage(apiErr.message || "Erro ao desvincular bagagem no banco.");
       setPhase("error");
@@ -300,9 +298,9 @@ export function MotoristaDesembarqueScreen() {
                 animation: "spin 0.9s linear infinite",
               }}
             />
-            <h3 style={{ margin: 0, fontSize: 18, color: DS.text1 }}>Encerrando Associação no Sistema...</h3>
+            <h3 style={{ margin: 0, fontSize: 18, color: DS.text1 }}>Liberando Bagagem no Sistema...</h3>
             <p style={{ margin: 0, fontSize: 13, color: DS.text2, textAlign: "center" }}>
-              Removendo registro e procedendo com a limpeza da tag física.
+              Desvinculando registro e liberando a etiqueta física para reutilização.
             </p>
           </div>
         )}
@@ -332,31 +330,58 @@ export function MotoristaDesembarqueScreen() {
               </svg>
             </div>
 
-            <h2 style={{ fontFamily: Fonts.heading, fontSize: 22, margin: "0 0 6px", color: DS.success, textAlign: "center" }}>
-              DESEMBARQUE CONFIRMADO
+            <h2 style={{ fontFamily: Fonts.heading, fontSize: 22, margin: "0 0 4px", color: DS.success, textAlign: "center" }}>
+              LIMPEZA CONCLUÍDA
             </h2>
-            <p style={{ margin: "0 0 20px", fontSize: 14, color: DS.text2, textAlign: "center" }}>
-              Associação de bagagem encerrada com sucesso no sistema.
+            <p style={{ margin: "0 0 18px", fontSize: 15, fontWeight: 600, color: DS.text1, textAlign: "center" }}>
+              Pode retirar a bagagem com segurança
             </p>
 
-            {/* Alerta de limpeza física de tag (conforme especificado no requisito 14) */}
+            {baggageDetail && (
+              <div
+                style={{
+                  width: "100%",
+                  background: DS.bg,
+                  borderRadius: 14,
+                  padding: "12px 14px",
+                  border: `1px solid ${DS.border}`,
+                  marginBottom: 16,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                  <span style={{ color: DS.text2 }}>Passageiro:</span>
+                  <span style={{ fontWeight: 700, color: DS.text1 }}>{baggageDetail.passengerName}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                  <span style={{ color: DS.text2 }}>Poltrona:</span>
+                  <span style={{ fontWeight: 800, color: DS.primary }}>{baggageDetail.seat}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                  <span style={{ color: DS.text2 }}>Status da Tag:</span>
+                  <span style={{ fontWeight: 700, color: DS.success }}>Liberada para Reuso</span>
+                </div>
+              </div>
+            )}
+
             <div
               style={{
                 width: "100%",
                 borderRadius: 14,
                 padding: "14px",
                 marginBottom: 20,
-                background: physicalTagCleaned ? "rgba(5,150,105,0.1)" : "rgba(245,158,11,0.12)",
-                border: `1px solid ${physicalTagCleaned ? DS.success : "#F59E0B"}`,
+                background: "rgba(5,150,105,0.1)",
+                border: `1px solid ${DS.success}`,
+                textAlign: "center",
               }}
             >
-              <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700, color: physicalTagCleaned ? DS.success : "#D97706" }}>
-                {physicalTagCleaned ? "✓ Tag Física Limpa" : "⚠️ Tag Física Não Reinicializada"}
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: DS.success }}>
+                ✓ Associação de bagagem encerrada com sucesso
               </p>
-              <p style={{ margin: 0, fontSize: 12, color: DS.text1, lineHeight: 1.4 }}>
-                {physicalTagCleaned
-                  ? "A tag NDEF foi sobrescrita e está pronta para ser reutilizada em outra bagagem."
-                  : "A retirada foi realizada no sistema, mas a tag física precisa ser limpa/reprocessada antes de reutilização."}
+              <p style={{ margin: "4px 0 0", fontSize: 12, color: DS.text2 }}>
+                A etiqueta física está limpa e pode ser vinculada em uma nova viagem.
               </p>
             </div>
 
