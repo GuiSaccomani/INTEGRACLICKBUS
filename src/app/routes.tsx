@@ -46,6 +46,7 @@ export const router = createBrowserRouter([
       { path: "validada",        Component: PassagemValidadaScreen },
       { path: "bagagens",        Component: BagagensScreen },
       { path: "bagagem-nova",    Component: RegistrarBagemScreen },
+      { path: "bagagens/registrar", Component: RegistrarBagemScreen },
       { path: "bagagem-ok",      Component: BagemValidadaScreen },
       { path: "historico",       Component: HistoricoScreen },
       { path: "historico-completo", Component: ViagensHistoricoCompletoScreen },
