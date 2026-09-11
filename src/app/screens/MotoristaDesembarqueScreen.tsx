@@ -80,6 +80,7 @@ export function MotoristaDesembarqueScreen() {
 
   useEffect(() => {
     loadTripBaggages();
+    return () => nfcService.stopScan();
   }, [loadTripBaggages]);
 
   // Busca dados da bagagem pelo BAGGAGE_ID
@@ -217,6 +218,7 @@ export function MotoristaDesembarqueScreen() {
   };
 
   const handleReset = () => {
+    nfcService.stopScan();
     setPhase("idle");
     setBaggageDetail(null);
     setManualBaggageId("");

@@ -44,6 +44,7 @@ export function MotoristaValidacaoScreen() {
 
   useEffect(() => {
     loadTripData();
+    return () => nfcService.stopScan();
   }, [loadTripData]);
 
   // Executa validação real contra o backend Node/Express e banco Oracle
@@ -134,6 +135,7 @@ export function MotoristaValidacaoScreen() {
   };
 
   const handleReset = () => {
+    nfcService.stopScan();
     setMode("select");
     setPhase("idle");
     setValidatedData(null);

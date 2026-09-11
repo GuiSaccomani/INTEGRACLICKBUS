@@ -16,6 +16,8 @@ import {
  * - Para o embarque de PASSAGEIRO no Web, o QR Code é o fallback primário garantido.
  */
 class NfcService {
+  private activeScanController?: AbortController;
+
   /**
    * Verifica o suporte do dispositivo e navegador ao Web NFC.
    */
@@ -75,6 +77,16 @@ class NfcService {
   }
 
   /**
+   * Encerra a escuta ativa de tags físicas NDEF.
+   */
+  public stopScan() {
+    if (this.activeScanController) {
+      this.activeScanController.abort();
+      this.activeScanController = undefined;
+    }
+  }
+
+  /**
    * Inicia a escuta ativa de tags físicas NDEF via Web NFC.
    */
   public async scan(options: ScanOptions): Promise<void> {
@@ -85,11 +97,19 @@ class NfcService {
       throw err;
     }
 
+    this.stopScan();
+    const ac = new AbortController();
+    this.activeScanController = ac;
+
+    if (options.signal) {
+      options.signal.addEventListener('abort', () => this.stopScan());
+    }
+
     try {
       const NDEFReaderClass = (window as any).NDEFReader;
       const ndef = new NDEFReaderClass();
 
-      await ndef.scan({ signal: options.signal });
+      await ndef.scan({ signal: ac.signal });
 
       ndef.onreading = (event: any) => {
         const serialNumber = event.serialNumber || "";
