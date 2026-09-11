@@ -12,11 +12,10 @@ import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
 
-    // Default para Emulador Android oficial.
-    // Para testar em dispositivo físico na mesma rede Wi-Fi, pode-se atualizar para o IP local (ex: "http://192.168.1.50:3333/").
-    private const val DEFAULT_EMULATOR_BASE_URL = "http://10.0.2.2:3333/"
+    // URL de Produção na Nuvem (Render). Funciona tanto em dispositivos físicos (4G/Wi-Fi) quanto no Emulador.
+    private const val PRODUCTION_BASE_URL = "https://integraclickbus.onrender.com/"
     
-    private var currentBaseUrl: String = DEFAULT_EMULATOR_BASE_URL
+    private var currentBaseUrl: String = PRODUCTION_BASE_URL
     private var apiServiceInstance: ApiService? = null
 
     val gson: Gson = GsonBuilder()
