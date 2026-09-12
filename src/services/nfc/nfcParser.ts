@@ -81,7 +81,7 @@ export function parseCredentialNdefPayload(textPayload: string, serialNumber?: s
   if (!textPayload || typeof textPayload !== "string") return null;
 
   const trimmed = textPayload.trim();
-  if (!trimmed.startsWith(NFC_PAYLOAD_PREFIX.CREDENTIAL)) {
+  if (!trimmed.startsWith(NFC_PAYLOAD_PREFIX.CREDENTIAL) && !trimmed.startsWith("INTEGRA:V1:")) {
     const hexOnly = trimmed.replace(/[^a-fA-F0-9]/g, "").toUpperCase();
     if (hexOnly.length === 64 || hexOnly.length === 32) {
       return {
@@ -95,7 +95,9 @@ export function parseCredentialNdefPayload(textPayload: string, serialNumber?: s
     return null;
   }
 
-  const rawRef = trimmed.slice(NFC_PAYLOAD_PREFIX.CREDENTIAL.length);
+  const isHce = trimmed.startsWith("INTEGRA:V1:");
+  const prefixLength = isHce ? "INTEGRA:V1:".length : NFC_PAYLOAD_PREFIX.CREDENTIAL.length;
+  const rawRef = trimmed.slice(prefixLength);
   const cleanRef = rawRef.replace(/[^a-fA-F0-9]/g, "").toUpperCase();
 
   if (cleanRef.length === 0) return null;
