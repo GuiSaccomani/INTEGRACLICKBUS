@@ -105,6 +105,7 @@ export function MotoristaValidacaoScreen() {
     try {
       await nfcService.scan({
         onCredentialRead: (cred) => {
+          nfcService.stopScan();
           handleValidateCredential(cred.credentialRef);
         },
         onError: (err) => {
