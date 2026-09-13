@@ -47,6 +47,14 @@ fun DriverValidationScreen(
     var manualCodeInput by remember { mutableStateOf("") }
     val scrollState = rememberScrollState()
 
+    // Consome credencial NFC que chegou via intent do sistema Android
+    LaunchedEffect(Unit) {
+        val pendingCredential = com.integra.MainActivity.consumeNfcCredential()
+        if (pendingCredential != null && pendingCredential.isNotBlank()) {
+            viewModel.validateCredentialOnApi(pendingCredential)
+        }
+    }
+
     DisposableEffect(activity) {
         if (activity != null) {
             viewModel.initializeNfc(activity)

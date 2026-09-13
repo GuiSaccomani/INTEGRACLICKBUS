@@ -5,7 +5,5 @@
         android:category="other"
         android:description="@string/app_name">
         <aid-filter android:name="F0494E5445475241" />
-        <!-- AID para emulação de NDEF Type 4 Tag (Web NFC) -->
-        <aid-filter android:name="D2760000850101" />
     </aid-group>
 </host-apdu-service>
