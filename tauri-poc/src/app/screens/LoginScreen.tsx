@@ -142,11 +142,11 @@ export function LoginScreen() {
         userId: "mock-id-123",
         userName: "Guilherme Integra",
         userEmail: "guilherme@integra.com",
-        roles: { isPassenger: true, isDriver: true, isOperator: false }
+        roles: { isPassenger: true, isDriver: false, isOperator: false }
       };
       localStorage.setItem("integra_user", JSON.stringify(mockUser));
-      localStorage.setItem("integra_user_role", "driver");
-      nav("/motorista/home");
+      localStorage.setItem("integra_user_role", "passenger");
+      nav("/home");
       return;
     }
 
