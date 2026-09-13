@@ -117,8 +117,8 @@ fun LoginScreen(
     val authViewModel = remember { AuthViewModel(context) }
     val authState by authViewModel.uiState.collectAsState()
 
-    var emailOrCpf by remember { mutableStateOf("guilherme@integra.com") }
-    var senha by remember { mutableStateOf("123mudar") }
+    var emailOrCpf by remember { mutableStateOf("") }
+    var senha by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
 
