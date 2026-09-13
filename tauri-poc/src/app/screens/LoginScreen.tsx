@@ -5,36 +5,28 @@ import { useDS, Screen, LogoMark } from "../components/MobileLayout";
 import { webauthnService, type BiometricSupportStatus } from "../../services/webauthn";
 import { playValidationSuccessSound, playClickSound } from "../../services/sound";
 
-function Field({ label, type = "text", placeholder, value, onChange, trailingIcon }: {
+function Field({ label, type = "text", placeholder, value, onChange }: {
   label: string; type?: string; placeholder: string;
   value: string; onChange: (v: string) => void;
-  trailingIcon?: React.ReactNode;
 }) {
   const DS = useDS();
   const [focused, setFocused] = useState(false);
   return (
     <div style={{ marginBottom: 16 }}>
       <label style={{ display: "block", marginBottom: 7, fontSize: 13, fontWeight: 600, color: DS.text2 }}>{label}</label>
-      <div style={{ position: "relative" }}>
-        <input
-          type={type} placeholder={placeholder} value={value}
-          onChange={e => onChange(e.target.value)}
-          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
-          style={{
-            width: "100%", height: 56, padding: trailingIcon ? "0 54px 0 16px" : "0 16px", boxSizing: "border-box",
-            borderRadius: 14, border: `2px solid ${focused ? DS.primary : DS.borderMd}`,
-            background: focused ? DS.primaryLight : DS.surface,
-            fontSize: 16, fontFamily: "'Inter', sans-serif", color: DS.text1, outline: "none",
-            transition: "border-color 0.18s, background 0.18s",
-            boxShadow: focused ? `0 0 0 4px rgba(123,44,191,0.07)` : "none",
-          }}
-        />
-        {trailingIcon && (
-          <div style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)" }}>
-            {trailingIcon}
-          </div>
-        )}
-      </div>
+      <input
+        type={type} placeholder={placeholder} value={value}
+        onChange={e => onChange(e.target.value)}
+        onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+        style={{
+          width: "100%", height: 56, padding: "0 16px", boxSizing: "border-box",
+          borderRadius: 14, border: `2px solid ${focused ? DS.primary : DS.borderMd}`,
+          background: focused ? DS.primaryLight : DS.surface,
+          fontSize: 16, fontFamily: "'Inter', sans-serif", color: DS.text1, outline: "none",
+          transition: "border-color 0.18s, background 0.18s",
+          boxShadow: focused ? `0 0 0 4px rgba(123,44,191,0.07)` : "none",
+        }}
+      />
     </div>
   );
 }
@@ -46,7 +38,6 @@ export function LoginScreen() {
   const nav = useNavigate();
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -136,20 +127,6 @@ export function LoginScreen() {
       loginEmail.toLowerCase().includes("motorista") ||
       loginEmail.toLowerCase().includes("driver");
 
-    // MOCK PARA APRESENTAÇÃO
-    if (loginEmail.toLowerCase() === "guilherme@integra.com" && loginSenha === "123mudar") {
-      const mockUser = {
-        userId: "mock-id-123",
-        userName: "Guilherme Integra",
-        userEmail: "guilherme@integra.com",
-        roles: { isPassenger: true, isDriver: false, isOperator: false }
-      };
-      localStorage.setItem("integra_user", JSON.stringify(mockUser));
-      localStorage.setItem("integra_user_role", "passenger");
-      nav("/home");
-      return;
-    }
-
     try {
       const response = await authApi.login(loginEmail, loginSenha);
       if (response && response.user) {
@@ -218,21 +195,7 @@ export function LoginScreen() {
         style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 24px" }}
       >
         <Field label="E-mail" type="email" placeholder="seu.email@exemplo.com" value={email} onChange={setEmail} />
-        <Field 
-          label="Senha" 
-          type={showPassword ? "text" : "password"} 
-          placeholder="••••••••" 
-          value={senha} 
-          onChange={setSenha} 
-          trailingIcon={
-            <button
-              onClick={() => setShowPassword(!showPassword)}
-              style={{ background: "none", border: "none", cursor: "pointer", color: DS.primary, fontSize: 13, fontWeight: 700, padding: 8, outline: "none" }}
-            >
-              {showPassword ? "Ocultar" : "Ver"}
-            </button>
-          }
-        />
+        <Field label="Senha" type="password" placeholder="••••••••" value={senha} onChange={setSenha} />
 
         {errorMsg && (
           <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.2)", marginBottom: 14 }}>
