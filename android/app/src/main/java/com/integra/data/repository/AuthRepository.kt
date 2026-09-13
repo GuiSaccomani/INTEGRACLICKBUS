@@ -17,7 +17,7 @@ class AuthRepository(
                 userId = "mock-id-123",
                 userName = "Guilherme Integra",
                 userEmail = "guilherme@integra.com",
-                roles = com.integra.data.model.UserRolesDto(isPassenger = true, isDriver = true, isOperator = false)
+                roles = com.integra.data.model.UserRoleDto(isPassenger = true, isDriver = true, isOperator = false)
             )
             sessionManager?.saveUserSession(mockUser)
             return Result.success(mockUser)
