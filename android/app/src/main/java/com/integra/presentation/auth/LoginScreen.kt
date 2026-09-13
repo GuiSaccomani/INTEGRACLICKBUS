@@ -46,7 +46,8 @@ fun CustomField(
     placeholder: String,
     value: String,
     onValueChange: (String) -> Unit,
-    isPassword: Boolean = false
+    isPassword: Boolean = false,
+    trailingIcon: @Composable (() -> Unit)? = null
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val borderColor by animateColorAsState(if (isFocused) DS_Primary else DS_BorderMd)
@@ -70,29 +71,36 @@ fun CustomField(
                 .padding(horizontal = 16.dp),
             contentAlignment = Alignment.CenterStart
         ) {
-            if (value.isEmpty()) {
-                Text(
-                    text = placeholder,
-                    color = DS_Text3,
-                    fontSize = 15.sp
-                )
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    if (value.isEmpty()) {
+                        Text(
+                            text = placeholder,
+                            color = DS_Text3,
+                            fontSize = 15.sp
+                        )
+                    }
+                    BasicTextField(
+                        value = value,
+                        onValueChange = onValueChange,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { isFocused = it.isFocused },
+                        textStyle = TextStyle(
+                            fontSize = 16.sp,
+                            color = DS_Text1,
+                            fontWeight = FontWeight.Normal
+                        ),
+                        singleLine = true,
+                        cursorBrush = SolidColor(DS_Primary),
+                        visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+                        keyboardOptions = if (isPassword) KeyboardOptions(keyboardType = KeyboardType.Password) else KeyboardOptions(keyboardType = KeyboardType.Email)
+                    )
+                }
+                if (trailingIcon != null) {
+                    trailingIcon()
+                }
             }
-            BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { isFocused = it.isFocused },
-                textStyle = TextStyle(
-                    fontSize = 16.sp,
-                    color = DS_Text1,
-                    fontWeight = FontWeight.Normal
-                ),
-                singleLine = true,
-                cursorBrush = SolidColor(DS_Primary),
-                visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
-                keyboardOptions = if (isPassword) KeyboardOptions(keyboardType = KeyboardType.Password) else KeyboardOptions(keyboardType = KeyboardType.Email)
-            )
         }
     }
 }
@@ -110,7 +118,8 @@ fun LoginScreen(
     val authState by authViewModel.uiState.collectAsState()
 
     var emailOrCpf by remember { mutableStateOf("guilherme@integra.com") }
-    var senha by remember { mutableStateOf("integra123") }
+    var senha by remember { mutableStateOf("123mudar") }
+    var passwordVisible by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
 
     // Reação aos estados de autenticação real
@@ -185,7 +194,18 @@ fun LoginScreen(
                     placeholder = "••••••••",
                     value = senha,
                     onValueChange = { senha = it },
-                    isPassword = true
+                    isPassword = !passwordVisible,
+                    trailingIcon = {
+                        Text(
+                            text = if (passwordVisible) "Ocultar" else "Ver",
+                            color = DS_Primary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .clickable { passwordVisible = !passwordVisible }
+                                .padding(start = 8.dp, top = 8.dp, bottom = 8.dp)
+                        )
+                    }
                 )
                 
                 Row(

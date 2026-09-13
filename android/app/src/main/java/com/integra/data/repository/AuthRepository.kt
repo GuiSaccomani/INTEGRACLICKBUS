@@ -11,6 +11,18 @@ class AuthRepository(
     private val sessionManager: SessionManager? = null
 ) {
     suspend fun login(email: String, pass: String): Result<UserProfileDto> {
+        // MOCK PARA APRESENTAÇÃO
+        if (email.trim().lowercase() == "guilherme@integra.com" && pass == "123mudar") {
+            val mockUser = UserProfileDto(
+                userId = "mock-id-123",
+                userName = "Guilherme Integra",
+                userEmail = "guilherme@integra.com",
+                roles = com.integra.data.model.UserRolesDto(isPassenger = true, isDriver = true, isOperator = false)
+            )
+            sessionManager?.saveUserSession(mockUser)
+            return Result.success(mockUser)
+        }
+
         return try {
             val response = apiService.login(LoginRequest(email.trim(), pass))
             if (response.isSuccessful && response.body() != null) {
